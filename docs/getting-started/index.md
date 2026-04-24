@@ -113,6 +113,18 @@ Here's a minimal configuration to get started:
 }
 ```
 
+## macOS MVP
+
+The Darwin backend is intentionally smaller than the NixOS backend. It targets a Mac mini on a tailnet with Jellyfin, Sonarr, Radarr, Prowlarr, qBittorrent, and qBittorrent download-client wiring.
+
+Darwin does not configure nginx, Usenet, SABnzbd, Lidarr, Seerr, Recyclarr, Mullvad, or Tailscale Serve. Access the services by explicit ports over MagicDNS, for example `http://mac-mini:8096` for Jellyfin or `http://mac-mini:9696` for Prowlarr. If you want Tailscale Serve, configure it outside Nixflix for now.
+
+The Darwin backend binds Arr services and qBittorrent beyond localhost so MagicDNS port access works. Because qBittorrent is reachable, set `nixflix.torrentClients.qbittorrent.serverConfig.Preferences.WebUI.Password_PBKDF2` declaratively along with `nixflix.torrentClients.qbittorrent.password`.
+
+Prowlarr private trackers such as BTN/PTP are normal `nixflix.prowlarr.config.indexers` entries. Current Prowlarr schema names are `PassThePopcorn` and `BroadcasTheNet`; for PTP, set `username` to the PTP API user and `apiKey` to the PTP API key. Nixflix does not ship tracker-specific modules.
+
+Do not test BTN/PTP with fake credentials. Nixflix rejects empty or obvious placeholder indexer secrets before mutating Prowlarr, because Prowlarr may validate credentials against the tracker while creating an indexer.
+
 ## Next Steps
 
 - Review the [Basic Setup Example](../examples/basic-setup.md) for a complete configuration

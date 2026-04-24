@@ -5,6 +5,7 @@
 }:
 with lib;
 let
+  hostName = config.networking.hostName or null;
   mkStrOption =
     default: description:
     mkOption {
@@ -16,8 +17,8 @@ in
   options.nixflix.jellyfin.system = {
     serverName = mkOption {
       type = types.str;
-      default = config.networking.hostName;
-      defaultText = literalExpression ''"''${config.networking.hostName}"'';
+      default = if hostName != null then hostName else "nixflix";
+      defaultText = literalExpression ''config.networking.hostName or "nixflix"'';
       description = ''
         This name will be used to identify the server and will default to the server's hostname.
       '';

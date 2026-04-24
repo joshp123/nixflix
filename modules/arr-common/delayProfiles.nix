@@ -114,7 +114,7 @@ in
     '';
   };
 
-  mkService = serviceConfig: {
+  mkJob = serviceConfig: {
     description = "Configure ${serviceName} delay profiles via API";
     after = [ "${serviceName}-config.service" ];
     requires = [ "${serviceName}-config.service" ];

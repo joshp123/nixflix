@@ -1,6 +1,6 @@
 # Testing Guide for Nixflix
 
-This directory contains tests for the Nixflix NixOS modules that configure \*arr applications (Sonarr, Radarr, Lidarr, Prowlarr).
+This directory contains tests for the Nixflix module outputs. Today most coverage is still NixOS-focused, but the tree now also has a Darwin evaluation path so the flake can expose cross-platform checks without pretending Darwin tests are NixOS VM tests.
 
 ## Test Structure
 
@@ -8,6 +8,8 @@ This directory contains tests for the Nixflix NixOS modules that configure \*arr
 tests/
 ├── README.md           # This file
 ├── default.nix         # Main test entry point
+├── darwin/             # Darwin evaluation checks
+│   └── default.nix
 ├── vm-tests/           # NixOS VM integration tests
 │   ├── default.nix
 │   └── *.nix          # Individual VM test files
@@ -34,12 +36,17 @@ Unit tests verify that NixOS module options generate correct systemd service def
 - Correct systemd unit dependencies
 - Default value application
 
+### 3. Darwin Evaluation Tests
+
+Darwin tests prove that the Darwin module output exists and lowers the Mac MVP to the expected launchd shape: non-root service users, one convergence daemon per service, torrent-only qBittorrent wiring, and Prowlarr application/indexer configuration. They are still eval/build checks, not a substitute for activating a real nix-darwin host.
+
 ## Running Tests
 
 ### List Available Tests
 
 ```bash
 nix eval --json '.#checks.x86_64-linux' --apply builtins.attrNames
+nix eval --json '.#checks.aarch64-darwin' --apply builtins.attrNames
 ```
 
 ### Run Individual Tests
@@ -87,7 +94,7 @@ This opens a Python REPL where you can interact with the VM:
 
 Tests run automatically on GitHub Actions for every push and pull request.
 
-When you add new tests to `tests/vm-tests/default.nix` or `tests/unit-tests/default.nix`, they are automatically included in CI - no workflow updates needed!
+When you add new NixOS tests to `tests/vm-tests/` or `tests/unit-tests/default.nix`, they are automatically included in the Linux flake checks. Darwin checks live under `tests/darwin/` and are wired through `tests/default.nix`.
 
 ## Writing New Tests
 

@@ -6,7 +6,7 @@
 let
   secrets = import ../../lib/secrets { inherit lib; };
 
-  tokenFile = "/run/jellyfin/auth-token";
+  tokenFile = "${cfg.dataDir}/auth-token";
   token = {
     _secret = tokenFile;
   };
@@ -18,7 +18,7 @@ in
     set -eu
 
     API_KEY=${secrets.toShellValue cfg.apiKey}
-    printf 'MediaBrowser Client="nixflix", Device="NixOS", DeviceId="nixflix-auth", Version="1.0.0", Token="%s"' "$API_KEY" > "${tokenFile}"
+    printf 'MediaBrowser Client="nixflix", Device="nixflix", DeviceId="nixflix-auth", Version="1.0.0", Token="%s"' "$API_KEY" > "${tokenFile}"
     chmod 600 "${tokenFile}"
   '';
 }

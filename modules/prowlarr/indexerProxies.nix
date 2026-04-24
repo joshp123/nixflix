@@ -10,6 +10,7 @@ let
   secrets = import ../../lib/secrets { inherit lib; };
 
   mkSecureCurl = import ../../lib/mk-secure-curl.nix { inherit lib pkgs; };
+  mkNixosOneshotService = import ../backends/nixos/mk-oneshot-service.nix { inherit lib pkgs; };
 in
 {
   options.nixflix.prowlarr.config.indexerProxies = mkOption {
@@ -70,7 +71,7 @@ in
 
   config.systemd.services."prowlarr-indexer-proxies" =
     mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null)
-      {
+      (mkNixosOneshotService {
         description = "Configure Prowlarr indexer proxies via API";
         after = [
           "prowlarr-config.service"
@@ -82,12 +83,6 @@ in
           "prowlarr-tags.service"
         ]
         ++ optional config.nixflix.flaresolverr.enable "flaresolverr.service";
-        wantedBy = [ "multi-user.target" ];
-
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
 
         script = ''
           set -eu
@@ -141,7 +136,7 @@ in
                   method = "DELETE";
                   extraArgs = "-Sf";
                 }
-              } >/dev/null || echo "Warning: Failed to delete indexer proxy $INDEXER_NAME"
+              } >/dev/null
             fi
           done
 
@@ -255,5 +250,5 @@ in
 
           echo "Prowlarr indexer proxies configuration complete"
         '';
-      };
+      });
 }

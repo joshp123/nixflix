@@ -25,7 +25,7 @@ in
     '';
   };
 
-  mkService = serviceConfig: {
+  mkJob = serviceConfig: {
     description = "Configure ${serviceName} root folders via API";
     after = [ "${serviceName}-config.service" ] ++ config.nixflix.serviceDependencies;
     requires = [ "${serviceName}-config.service" ] ++ config.nixflix.serviceDependencies;

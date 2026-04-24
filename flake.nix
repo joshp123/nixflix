@@ -3,6 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nix-darwin = {
+      url = "github:LnL7/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -22,13 +26,15 @@
     }@inputs:
     let
       inherit (nixpkgs) lib;
-      systems = [
+      linuxSystems = [
         "x86_64-linux"
         "aarch64-linux"
       ];
+      darwinSystems = [ "aarch64-darwin" ];
+      packageSystems = linuxSystems ++ darwinSystems;
 
-      perSystem =
-        f:
+      perSystemFor =
+        systems: f:
         lib.genAttrs systems (
           system:
           f rec {
@@ -45,8 +51,10 @@
     {
       nixosModules.default = import ./modules;
       nixosModules.nixflix = import ./modules;
+      darwinModules.default = import ./modules/backends/darwin;
+      darwinModules.nixflix = self.darwinModules.default;
 
-      packages = perSystem (
+      packages = perSystemFor packageSystems (
         {
           system,
           pkgs,
@@ -58,7 +66,7 @@
         }
       );
 
-      apps = perSystem (
+      apps = perSystemFor packageSystems (
         {
           system,
           pkgs,
@@ -77,31 +85,54 @@
         }
       );
 
-      formatter = perSystem ({ treefmt, ... }: treefmt.config.build.wrapper);
+      formatter = perSystemFor packageSystems ({ treefmt, ... }: treefmt.config.build.wrapper);
 
-      checks = perSystem (
-        {
-          treefmt,
-          lib,
-          pkgs,
-          system,
-          ...
-        }:
-        let
-          tests = import ./tests {
-            inherit system pkgs lib;
-            nixosModules = self.nixosModules.default;
-          };
-        in
-        {
-          formatting = treefmt.config.build.check self;
-          docs-build = self.packages.${system}.docs;
-        }
-        // tests.vm-tests
-        // tests.unit-tests
-      );
+      checks =
+        perSystemFor linuxSystems (
+          {
+            treefmt,
+            lib,
+            pkgs,
+            system,
+            ...
+          }:
+          let
+            tests = import ./tests {
+              inherit system pkgs lib;
+              nixosModules = self.nixosModules.default;
+              darwinModules = self.darwinModules.default;
+            };
+          in
+          {
+            formatting = treefmt.config.build.check self;
+            docs-build = self.packages.${system}.docs;
+          }
+          // tests.vm-tests
+          // tests.unit-tests
+        )
+        // perSystemFor darwinSystems (
+          {
+            treefmt,
+            lib,
+            pkgs,
+            system,
+            ...
+          }:
+          let
+            tests = import ./tests {
+              inherit system pkgs lib;
+              darwinModules = self.darwinModules.default;
+              nixDarwin = inputs.nix-darwin.lib;
+            };
+          in
+          {
+            formatting = treefmt.config.build.check self;
+            docs-build = self.packages.${system}.docs;
+          }
+          // tests.darwin-tests
+        );
 
-      devShells = perSystem (
+      devShells = perSystemFor packageSystems (
         {
           pkgs,
           treefmt,

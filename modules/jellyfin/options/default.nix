@@ -103,7 +103,7 @@ in
     vpn = {
       enable = mkOption {
         type = types.bool;
-        default = config.nixflix.mullvad.enable;
+        default = config.nixflix.mullvad.enable or false;
         defaultText = literalExpression "config.nixflix.mullvad.enable";
         description = ''
           Whether to route Jellyfin traffic through the VPN.

@@ -1,0 +1,61 @@
+{
+  config,
+  lib,
+  ...
+}:
+with lib;
+{
+  imports = [
+    ../../shared/core.nix
+    ../../globals.nix
+    ./downloadarr.nix
+    ./jellyfin.nix
+    ./prowlarr.nix
+    ./qbittorrent.nix
+    ./sonarr.nix
+    ./sonarr-anime.nix
+    ./radarr.nix
+  ];
+
+  config = mkIf config.nixflix.enable {
+    assertions = [
+      {
+        assertion =
+          !(config.nixflix.lidarr.enable or false)
+          && !(config.nixflix.usenetClients.sabnzbd.enable or false)
+          && !(config.nixflix.seerr.enable or false)
+          && !(config.nixflix.recyclarr.enable or false)
+          && !(config.nixflix.mullvad.enable or false)
+          && !(config.nixflix.flaresolverr.enable or false)
+          && !config.nixflix.nginx.enable
+          && !config.nixflix.theme.enable
+          && config.nixflix.mediaUsers == [ ]
+          && config.nixflix.serviceDependencies == [ ];
+        message = ''
+          The Darwin backend is an MVP for Jellyfin, Prowlarr, Sonarr, Radarr, qBittorrent, and qBittorrent-based downloadarr wiring.
+          Usenet, nginx, themes, mediaUsers, custom serviceDependencies, VPN, Seerr, Recyclarr, Lidarr, and FlareSolverr are not implemented on Darwin yet.
+        '';
+      }
+    ];
+
+    users.knownGroups = [ "_nixflix" ];
+    users.knownUsers = [ "_nixflix" ];
+    users.groups."_nixflix" = {
+      gid = mkDefault 535;
+      description = "Nixflix service group";
+    };
+    users.users."_nixflix" = {
+      uid = mkDefault 535;
+      gid = mkDefault config.users.groups."_nixflix".gid;
+      description = "Nixflix service user";
+      home = config.nixflix.stateDir;
+      isHidden = true;
+      createHome = false;
+    };
+
+    system.activationScripts.users.text = mkAfter ''
+      mkdir -p '${config.nixflix.stateDir}' '${config.nixflix.mediaDir}' '${config.nixflix.downloadsDir}'
+      chown '_nixflix:_nixflix' '${config.nixflix.stateDir}' '${config.nixflix.mediaDir}' '${config.nixflix.downloadsDir}'
+    '';
+  };
+}

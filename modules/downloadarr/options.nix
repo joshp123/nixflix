@@ -6,6 +6,7 @@
 with lib;
 let
   secrets = import ../../lib/secrets { inherit lib; };
+  hasSabnzbd = config.nixflix ? usenetClients && config.nixflix.usenetClients ? sabnzbd;
 
   categoriesOption = mkOption {
     type = types.submodule {
@@ -37,7 +38,7 @@ let
         prowlarr = mkOption {
           type = types.str;
           default = "prowlarr";
-          description = "The categories to use for the Lidarr instance";
+          description = "The categories to use for the Prowlarr instance";
         };
       };
     };
@@ -72,7 +73,7 @@ let
           {
             type = types.listOf types.str;
             default = [ ];
-            description = "systemd services that this integration depends on";
+            description = "Backend-managed runtime dependencies that this integration waits for before configuration.";
           }
           // dependencies
         );
@@ -127,26 +128,50 @@ let
     implementationName = "SABnzbd";
 
     enable = {
-      default = config.nixflix.usenetClients.sabnzbd.enable;
-      defaultText = literalExpression "config.nixflix.usenetClients.sabnzbd.enable";
+      default = if hasSabnzbd then config.nixflix.usenetClients.sabnzbd.enable else false;
+      defaultText = literalExpression ''
+        if config.nixflix ? usenetClients && config.nixflix.usenetClients ? sabnzbd then
+          config.nixflix.usenetClients.sabnzbd.enable
+        else
+          false
+      '';
     };
 
-    dependencies.default = [ "sabnzbd-categories.service" ];
+    dependencies.default =
+      if config.nixflix.runtime ? downloadClients && config.nixflix.runtime.downloadClients ? sabnzbd then
+        config.nixflix.runtime.downloadClients.sabnzbd.dependencies
+      else
+        [ ];
+    dependencies.defaultText = literalExpression ''
+      if config.nixflix.runtime ? downloadClients && config.nixflix.runtime.downloadClients ? sabnzbd then
+        config.nixflix.runtime.downloadClients.sabnzbd.dependencies
+      else
+        [ ]
+    '';
 
     port = {
-      default = config.nixflix.usenetClients.sabnzbd.settings.misc.port;
-      defaultText = literalExpression "config.nixflix.usenetClients.sabnzbd.settings.misc.port";
+      default = if hasSabnzbd then config.nixflix.usenetClients.sabnzbd.settings.misc.port else 8080;
+      defaultText = literalExpression ''
+        if config.nixflix ? usenetClients && config.nixflix.usenetClients ? sabnzbd then
+          config.nixflix.usenetClients.sabnzbd.settings.misc.port
+        else
+          8080
+      '';
       example = 8080;
     };
 
     urlBase = {
       default =
-        if config.nixflix.usenetClients.sabnzbd.settings.misc.url_base == "" then
+        if !hasSabnzbd then
+          ""
+        else if config.nixflix.usenetClients.sabnzbd.settings.misc.url_base == "" then
           ""
         else
           lib.removePrefix "/" config.nixflix.usenetClients.sabnzbd.settings.misc.url_base;
       defaultText = literalExpression ''
-        if config.nixflix.usenetClients.sabnzbd.settings.misc.url_base == "" then
+        if !(config.nixflix ? usenetClients && config.nixflix.usenetClients ? sabnzbd) then
+          ""
+        else if config.nixflix.usenetClients.sabnzbd.settings.misc.url_base == "" then
           ""
         else
           lib.removePrefix "/" config.nixflix.usenetClients.sabnzbd.settings.misc.url_base;
@@ -157,8 +182,13 @@ let
     extraOptions = {
       apiKey = secrets.mkSecretOption {
         description = "API key for the download client.";
-        default = config.nixflix.usenetClients.sabnzbd.settings.misc.api_key;
-        defaultText = literalExpression "config.nixflix.usenetClients.sabnzbd.settings.misc.api_key";
+        default = if hasSabnzbd then config.nixflix.usenetClients.sabnzbd.settings.misc.api_key else null;
+        defaultText = literalExpression ''
+          if config.nixflix ? usenetClients && config.nixflix.usenetClients ? sabnzbd then
+            config.nixflix.usenetClients.sabnzbd.settings.misc.api_key
+          else
+            null
+        '';
         nullable = true;
       };
     };
@@ -172,11 +202,12 @@ let
       defaultText = literalExpression "config.nixflix.torrentClients.qbittorrent.enable";
     };
 
-    dependencies.default = [ "qbittorrent.service" ];
+    dependencies.default = config.nixflix.runtime.downloadClients.qbittorrent.dependencies;
+    dependencies.defaultText = literalExpression "config.nixflix.runtime.downloadClients.qbittorrent.dependencies";
 
     port = {
-      default = config.services.qbittorrent.webuiPort;
-      defaultText = literalExpression "config.services.qbittorrent.webuiPort";
+      default = config.nixflix.runtime.downloadClients.qbittorrent.port;
+      defaultText = literalExpression "config.nixflix.runtime.downloadClients.qbittorrent.port";
       example = 8080;
     };
 
@@ -187,8 +218,8 @@ let
     extraOptions = {
       username = secrets.mkSecretOption {
         description = "Username key for the download client.";
-        default = config.services.qbittorrent.serverConfig.Preferences.WebUI.Username;
-        defaultText = literalExpression "config.services.qbittorrent.serverConfig.Preferences.WebUI.Username";
+        default = config.nixflix.runtime.downloadClients.qbittorrent.username;
+        defaultText = literalExpression "config.nixflix.runtime.downloadClients.qbittorrent.username";
       };
 
       password = secrets.mkSecretOption {

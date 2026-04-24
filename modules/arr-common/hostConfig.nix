@@ -18,7 +18,7 @@ in
     description = "Host configuration options that will be set via the API /config/host endpoint";
   };
 
-  mkService =
+  mkJob =
     serviceConfig:
     let
       jqSecrets = secrets.mkJqSecretArgs {
@@ -146,11 +146,7 @@ in
         } > /dev/null
 
         echo "Configuration updated successfully"
-
-        # Restart the service to pick up the new configuration
-        echo "Restarting ${serviceName} service..."
-        systemctl restart ${serviceName}.service
-        echo "${capitalizedName} service restarted"
       '';
+      restartUnits = [ "${serviceName}.service" ];
     };
 }

@@ -92,6 +92,11 @@ in
     ];
 
     nixflix.usenetClients.sabnzbd.apiKeyPath = cfg.settings.misc.api_key._secret;
+    nixflix.runtime.downloadClients.sabnzbd = {
+      dependencies = [ "sabnzbd-categories.service" ];
+      inherit (cfg.settings.misc) host;
+      inherit (cfg.settings.misc) port;
+    };
 
     users.users.${cfg.user} = {
       inherit (cfg) group;

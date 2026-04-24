@@ -8,76 +8,11 @@ with lib;
 let
   inherit (config) nixflix;
   cfg = config.nixflix.jellyfin;
-
-  util = import ./util.nix { inherit lib; };
-  mkSecureCurl = import ../../lib/mk-secure-curl.nix { inherit lib pkgs; };
-  authUtil = import ./authUtil.nix { inherit lib pkgs cfg; };
-
-  systemConfig = util.recursiveTransform (removeAttrs cfg.system [ "removeOldPlugins" ]);
-
-  systemConfigJson = builtins.toJSON systemConfig;
-
-  systemConfigFile = pkgs.writeText "jellyfin-system-config.json" systemConfigJson;
-
-  baseUrl =
-    if cfg.network.baseUrl == "" then
-      "http://127.0.0.1:${toString cfg.network.internalHttpPort}"
-    else
-      "http://127.0.0.1:${toString cfg.network.internalHttpPort}/${cfg.network.baseUrl}";
-
-  waitForApiScript = import ./waitForApiScript.nix {
-    inherit pkgs;
-    jellyfinCfg = cfg;
-  };
+  mkNixosOneshotService = import ../backends/nixos/mk-oneshot-service.nix { inherit lib pkgs; };
+  mkSystemConfigJob = import ./mkSystemConfigJob.nix { inherit cfg lib pkgs; };
 in
 {
   config = mkIf (nixflix.enable && cfg.enable) {
-    systemd.services.jellyfin-system-config = {
-      description = "Configure Jellyfin System Settings via API";
-      after = [ "jellyfin-setup-wizard.service" ];
-      requires = [ "jellyfin-setup-wizard.service" ];
-      wantedBy = [ "multi-user.target" ];
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStartPre = waitForApiScript;
-      };
-
-      script = ''
-        set -eu
-
-        BASE_URL="${baseUrl}"
-
-        echo "Configuring Jellyfin system settings..."
-
-        source ${authUtil.authScript}
-
-        RESPONSE=$(${
-          mkSecureCurl authUtil.token {
-            method = "POST";
-            url = "$BASE_URL/System/Configuration";
-            apiKeyHeader = "Authorization";
-            headers = {
-              "Content-Type" = "application/json";
-            };
-            data = "@${systemConfigFile}";
-            extraArgs = "-w \"\\n%{http_code}\"";
-          }
-        })
-
-        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-        BODY=$(echo "$RESPONSE" | sed '$d')
-
-        echo "System config response (HTTP $HTTP_CODE): $BODY"
-
-        if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-          echo "Failed to configure Jellyfin system settings (HTTP $HTTP_CODE)" >&2
-          exit 1
-        fi
-
-        echo "Jellyfin system configuration completed successfully"
-      '';
-    };
+    systemd.services.jellyfin-system-config = mkNixosOneshotService mkSystemConfigJob;
   };
 }

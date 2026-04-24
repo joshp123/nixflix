@@ -9,6 +9,7 @@ let
   cfg = config.nixflix.prowlarr;
 
   mkSecureCurl = import ../../lib/mk-secure-curl.nix { inherit lib pkgs; };
+  mkNixosOneshotService = import ../backends/nixos/mk-oneshot-service.nix { inherit lib pkgs; };
 
   allTagNames = lib.unique (
     lib.concatMap (i: i.tags) cfg.config.indexers ++ lib.concatMap (p: p.tags) cfg.config.indexerProxies
@@ -17,16 +18,10 @@ in
 {
   config.systemd.services."prowlarr-tags" =
     mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null)
-      {
+      (mkNixosOneshotService {
         description = "Ensure Prowlarr tags exist via API";
         after = [ "prowlarr-config.service" ];
         requires = [ "prowlarr-config.service" ];
-        wantedBy = [ "multi-user.target" ];
-
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
 
         script = ''
           set -eu
@@ -66,5 +61,5 @@ in
 
           echo "Prowlarr tags configuration complete"
         '';
-      };
+      });
 }
