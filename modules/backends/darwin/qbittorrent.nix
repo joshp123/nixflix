@@ -76,6 +76,12 @@ in
           if /bin/launchctl print system/org.nixflix.qbittorrent >/dev/null 2>&1; then
             restart_qbittorrent=1
             /bin/launchctl bootout system/org.nixflix.qbittorrent >/dev/null 2>&1 || true
+            for _ in $(seq 1 30); do
+              if ! /bin/launchctl print system/org.nixflix.qbittorrent >/dev/null 2>&1; then
+                break
+              fi
+              sleep 1
+            done
           fi
         fi
         install -m 600 '${configFile}' '${configDir}/qBittorrent.ini'
