@@ -24,6 +24,8 @@ let
       ;
   };
   delayProfiles = import ../../arr-common/delayProfiles.nix { inherit lib pkgs serviceName; };
+  qualityProfiles = import ../../arr-common/qualityProfiles.nix { inherit lib pkgs serviceName; };
+  customFormats = import ../../arr-common/customFormats.nix { inherit lib pkgs serviceName; };
   mkServarrSettingsEnvVars = import ../../arr-common/mkServarrSettingsEnvVars.nix { inherit lib; };
   capitalizedName = toUpper (substring 0 1 serviceName) + substring 1 (-1) serviceName;
   usesMediaDirs = !(elem serviceName [ "prowlarr" ]);
@@ -253,6 +255,12 @@ in
     }
     // optionalAttrs (usesMediaDirs && cfg.config.apiKey != null) {
       "${serviceName}-delayprofiles" = mkNixosOneshotService (delayProfiles.mkJob cfg.config);
+    }
+    // optionalAttrs (usesMediaDirs && cfg.config.apiKey != null && cfg.config.qualityProfiles != [ ]) {
+      "${serviceName}-qualityprofiles" = mkNixosOneshotService (qualityProfiles.mkJob cfg.config);
+    }
+    // optionalAttrs (usesMediaDirs && cfg.config.apiKey != null && cfg.config.customFormats != [ ]) {
+      "${serviceName}-customformats" = mkNixosOneshotService (customFormats.mkJob cfg.config);
     };
   };
 }

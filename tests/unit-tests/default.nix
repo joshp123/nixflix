@@ -53,6 +53,19 @@ in
                 };
                 apiKey._secret = "/run/secrets/sonarr-api";
                 rootFolders = [ { path = "/media/tv"; } ];
+                qualityProfiles = [
+                  {
+                    name = "Best";
+                    sourceName = "Ultra-HD";
+                  }
+                ];
+                customFormats = [
+                  {
+                    name = "HDR";
+                    specifications = [ ];
+                    scores.Best = 500;
+                  }
+                ];
               };
             };
           };
@@ -60,7 +73,11 @@ in
       ];
       systemdUnits = config.config.systemd.services;
       hasAllServices =
-        systemdUnits ? sonarr && systemdUnits ? sonarr-config && systemdUnits ? sonarr-rootfolders;
+        systemdUnits ? sonarr
+        && systemdUnits ? sonarr-config
+        && systemdUnits ? sonarr-rootfolders
+        && systemdUnits ? sonarr-qualityprofiles
+        && systemdUnits ? sonarr-customformats;
     in
     assertTest "sonarr-service-generation" hasAllServices;
 
@@ -113,6 +130,19 @@ in
                 };
                 apiKey._secret = "/run/secrets/radarr-api";
                 rootFolders = [ { path = "/media/movies"; } ];
+                qualityProfiles = [
+                  {
+                    name = "Best";
+                    sourceName = "Ultra-HD";
+                  }
+                ];
+                customFormats = [
+                  {
+                    name = "HDR";
+                    specifications = [ ];
+                    scores.Best = 500;
+                  }
+                ];
               };
             };
           };
@@ -120,7 +150,11 @@ in
       ];
       systemdUnits = config.config.systemd.services;
       hasAllServices =
-        systemdUnits ? radarr && systemdUnits ? radarr-config && systemdUnits ? radarr-rootfolders;
+        systemdUnits ? radarr
+        && systemdUnits ? radarr-config
+        && systemdUnits ? radarr-rootfolders
+        && systemdUnits ? radarr-qualityprofiles
+        && systemdUnits ? radarr-customformats;
     in
     assertTest "radarr-service-generation" hasAllServices;
 

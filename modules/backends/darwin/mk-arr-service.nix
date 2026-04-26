@@ -23,6 +23,8 @@ let
       ;
   };
   delayProfiles = import ../../arr-common/delayProfiles.nix { inherit lib pkgs serviceName; };
+  qualityProfiles = import ../../arr-common/qualityProfiles.nix { inherit lib pkgs serviceName; };
+  customFormats = import ../../arr-common/customFormats.nix { inherit lib pkgs serviceName; };
   mkWaitForApiScript = import ../../arr-common/mkWaitForApiScript.nix { inherit lib pkgs; };
   mkDownloadClientsJob = import ../../downloadarr/mkDownloadClientsJob.nix {
     inherit config lib pkgs;
@@ -81,6 +83,8 @@ let
   hasHostConfig = cfg.config.apiKey != null && cfg.config.hostConfig.password != null;
   hasRootFolders = usesMediaDirs && cfg.config.apiKey != null && cfg.config.rootFolders != [ ];
   hasDelayProfiles = usesMediaDirs && cfg.config.apiKey != null;
+  hasQualityProfiles = usesMediaDirs && cfg.config.apiKey != null && cfg.config.qualityProfiles != [ ];
+  hasCustomFormats = usesMediaDirs && cfg.config.apiKey != null && cfg.config.customFormats != [ ];
   hasDownloadClients =
     cfg.config.apiKey != null
     && downloadarrCfg.enable
@@ -90,6 +94,8 @@ let
     hasHostConfig
     || hasRootFolders
     || hasDelayProfiles
+    || hasQualityProfiles
+    || hasCustomFormats
     || hasDownloadClients
     || extraConvergenceScripts != [ ];
 
@@ -135,6 +141,26 @@ let
     ''
   );
 
+  qualityProfilesScript = optionalString hasQualityProfiles (
+    let
+      job = qualityProfiles.mkJob cfg.config;
+    in
+    ''
+      ${waitForApi}
+      ${job.script}
+    ''
+  );
+
+  customFormatsScript = optionalString hasCustomFormats (
+    let
+      job = customFormats.mkJob cfg.config;
+    in
+    ''
+      ${waitForApi}
+      ${job.script}
+    ''
+  );
+
   downloadClientsScript = optionalString hasDownloadClients (
     let
       job = (mkDownloadClientsJob serviceName).mkJob;
@@ -172,6 +198,8 @@ let
         hostConfigScript
         rootFoldersScript
         delayProfilesScript
+        qualityProfilesScript
+        customFormatsScript
         downloadClientsScript
       ]
       ++ extraConvergenceScripts

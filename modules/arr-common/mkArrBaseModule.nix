@@ -20,6 +20,8 @@ let
       ;
   };
   delayProfiles = import ./delayProfiles.nix { inherit lib pkgs serviceName; };
+  qualityProfiles = import ./qualityProfiles.nix { inherit lib pkgs serviceName; };
+  customFormats = import ./customFormats.nix { inherit lib pkgs serviceName; };
   capitalizedName = toUpper (substring 0 1 serviceName) + substring 1 (-1) serviceName;
   usesMediaDirs = !(elem serviceName [ "prowlarr" ]);
   serviceBase = builtins.elemAt (splitString "-" serviceName) 0;
@@ -168,6 +170,8 @@ in
         // optionalAttrs usesMediaDirs {
           rootFolders = rootFolders.options;
           delayProfiles = delayProfiles.options;
+          qualityProfiles = qualityProfiles.options;
+          customFormats = customFormats.options;
         };
       };
       default = { };

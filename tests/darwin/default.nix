@@ -129,6 +129,19 @@ in
                 hostConfig.password._secret = "/tmp/sonarr-password";
                 hostConfig.authenticationRequired = "disabledForLocalAddresses";
                 rootFolders = [ { path = "/media/tv"; } ];
+                qualityProfiles = [
+                  {
+                    name = "Best";
+                    sourceName = "Ultra-HD";
+                  }
+                ];
+                customFormats = [
+                  {
+                    name = "HDR";
+                    specifications = [ ];
+                    scores.Best = 500;
+                  }
+                ];
               };
             };
             sonarr-anime = {
@@ -145,6 +158,19 @@ in
                 apiKey._secret = "/tmp/radarr-api-key";
                 hostConfig.password._secret = "/tmp/radarr-password";
                 rootFolders = [ { path = "/media/movies"; } ];
+                qualityProfiles = [
+                  {
+                    name = "Best";
+                    sourceName = "Ultra-HD";
+                  }
+                ];
+                customFormats = [
+                  {
+                    name = "HDR";
+                    specifications = [ ];
+                    scores.Best = 500;
+                  }
+                ];
               };
             };
           };
@@ -153,29 +179,44 @@ in
       manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
       sonarr = findCommand "sonarr" manifest.services;
       sonarrConfig = findCommand "sonarr-config" manifest.jobs;
+      radarrConfig = findCommand "radarr-config" manifest.jobs;
     in
-    assertTest "darwin-arr-basic" (
-      hasCommand "sonarr" manifest.services
-      && hasCommand "sonarr-config" manifest.jobs
-      && !(evaluated.config.launchd.daemons ? sonarr)
-      && !(evaluated.config.launchd.daemons ? sonarr-rootfolders)
-      && !(evaluated.config.launchd.daemons ? sonarr-delayprofiles)
-      && builtins.isString (builtins.elemAt sonarr.argv 0)
-      && sonarr.env.SONARR__AUTH__REQUIRED == "DisabledForLocalAddresses"
-      && builtins.isString (builtins.elemAt sonarrConfig.argv 0)
-      && hasCommand "sonarr-anime" manifest.services
-      && hasCommand "sonarr-anime-config" manifest.jobs
-      && !(evaluated.config.launchd.daemons ? sonarr-anime)
-      && !(evaluated.config.launchd.daemons ? sonarr-anime-rootfolders)
-      && !(evaluated.config.launchd.daemons ? sonarr-anime-delayprofiles)
-      && hasCommand "radarr" manifest.services
-      && hasCommand "radarr-config" manifest.jobs
-      && !(evaluated.config.launchd.daemons ? radarr)
-      && !(evaluated.config.launchd.daemons ? radarr-rootfolders)
-      && !(evaluated.config.launchd.daemons ? radarr-delayprofiles)
-      && evaluated.config.nixflix.sonarr.config.hostConfig.bindAddress == "*"
-      && evaluated.config.nixflix.radarr.config.hostConfig.bindAddress == "*"
-    );
+    pkgs.runCommand "darwin-test-darwin-arr-basic" { } ''
+      ${lib.optionalString (
+        !(
+          hasCommand "sonarr" manifest.services
+          && hasCommand "sonarr-config" manifest.jobs
+          && !(evaluated.config.launchd.daemons ? sonarr)
+          && !(evaluated.config.launchd.daemons ? sonarr-rootfolders)
+          && !(evaluated.config.launchd.daemons ? sonarr-delayprofiles)
+          && !(evaluated.config.launchd.daemons ? sonarr-qualityprofiles)
+          && !(evaluated.config.launchd.daemons ? sonarr-customformats)
+          && builtins.isString (builtins.elemAt sonarr.argv 0)
+          && sonarr.env.SONARR__AUTH__REQUIRED == "DisabledForLocalAddresses"
+          && builtins.isString (builtins.elemAt sonarrConfig.argv 0)
+          && hasCommand "sonarr-anime" manifest.services
+          && hasCommand "sonarr-anime-config" manifest.jobs
+          && !(evaluated.config.launchd.daemons ? sonarr-anime)
+          && !(evaluated.config.launchd.daemons ? sonarr-anime-rootfolders)
+          && !(evaluated.config.launchd.daemons ? sonarr-anime-delayprofiles)
+          && hasCommand "radarr" manifest.services
+          && hasCommand "radarr-config" manifest.jobs
+          && !(evaluated.config.launchd.daemons ? radarr)
+          && !(evaluated.config.launchd.daemons ? radarr-rootfolders)
+          && !(evaluated.config.launchd.daemons ? radarr-delayprofiles)
+          && !(evaluated.config.launchd.daemons ? radarr-qualityprofiles)
+          && !(evaluated.config.launchd.daemons ? radarr-customformats)
+          && builtins.isString (builtins.elemAt radarrConfig.argv 0)
+          && evaluated.config.nixflix.sonarr.config.hostConfig.bindAddress == "*"
+          && evaluated.config.nixflix.radarr.config.hostConfig.bindAddress == "*"
+        )
+      ) "echo 'FAIL: darwin-arr-basic' && exit 1"}
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "configure-quality-profiles.sh"} '${builtins.elemAt sonarrConfig.argv 0}'
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "configure-quality-profiles.sh"} '${builtins.elemAt radarrConfig.argv 0}'
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "configure-custom-formats.sh"} '${builtins.elemAt sonarrConfig.argv 0}'
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "configure-custom-formats.sh"} '${builtins.elemAt radarrConfig.argv 0}'
+      echo 'PASS: darwin-arr-basic' > $out
+    '';
 
   darwin-prowlarr-applications =
     let
