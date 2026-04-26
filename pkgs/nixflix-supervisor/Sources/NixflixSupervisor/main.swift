@@ -1,4 +1,3 @@
-import AppKit
 import Darwin
 import Foundation
 
@@ -315,23 +314,9 @@ func runSupervisor() throws {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try runSupervisor()
-            } catch {
-                FileHandle.standardError.write(Data("NixflixSupervisor: \(error)\n".utf8))
-                DispatchQueue.main.async {
-                    NSApp.terminate(nil)
-                }
-            }
-        }
-    }
+do {
+    try runSupervisor()
+} catch {
+    FileHandle.standardError.write(Data("NixflixSupervisor: \(error)\n".utf8))
+    exit(1)
 }
-
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.setActivationPolicy(.accessory)
-app.delegate = delegate
-app.run()

@@ -26,6 +26,7 @@ if [ -n "$uid" ]; then
     org.nixflix.sonarr-anime-config \
     org.nixflix.radarr \
     org.nixflix.radarr-config \
+    org.nixflix.bazarr \
     org.nixflix.prowlarr \
     org.nixflix.prowlarr-config; do
     /bin/launchctl bootout "gui/$uid/$label" >/dev/null 2>&1 || true
@@ -39,6 +40,7 @@ if [ -n "$uid" ]; then
     org.nixflix.sonarr-anime-config.plist \
     org.nixflix.radarr.plist \
     org.nixflix.radarr-config.plist \
+    org.nixflix.bazarr.plist \
     org.nixflix.prowlarr.plist \
     org.nixflix.prowlarr-config.plist; do
     rm -f "$user_home/Library/LaunchAgents/$plist"
@@ -55,6 +57,16 @@ fi
 /usr/bin/pkill -u "$supervisor_user" -x Sonarr >/dev/null 2>&1 || true
 /usr/bin/pkill -u "$supervisor_user" -x Radarr >/dev/null 2>&1 || true
 /usr/bin/pkill -u "$supervisor_user" -x Prowlarr >/dev/null 2>&1 || true
+/usr/bin/pkill -u "$supervisor_user" -f '/bazarr.py ' >/dev/null 2>&1 || true
+if pids="$(/usr/bin/pgrep -U "$supervisor_user" -f '/bazarr/main.py ' 2>/dev/null)"; then
+  printf '%s\n' "$pids" | while IFS= read -r pid; do
+    kill "$pid" >/dev/null 2>&1 || true
+  done
+  sleep 1
+  printf '%s\n' "$pids" | while IFS= read -r pid; do
+    kill -9 "$pid" >/dev/null 2>&1 || true
+  done
+fi
 
 rm -rf "$app_path"
 cp -R "$supervisor_app_src" "$app_path"

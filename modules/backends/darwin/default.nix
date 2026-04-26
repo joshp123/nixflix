@@ -9,6 +9,7 @@ with lib;
     ../../shared/core.nix
     ../../globals.nix
     ./supervisor.nix
+    ./bazarr.nix
     ./downloadarr.nix
     ./jellyfin.nix
     ./prowlarr.nix
@@ -33,7 +34,7 @@ with lib;
           && config.nixflix.mediaUsers == [ ]
           && config.nixflix.serviceDependencies == [ ];
         message = ''
-          The Darwin backend is an MVP for Jellyfin, Prowlarr, Sonarr, Radarr, qBittorrent, and qBittorrent-based downloadarr wiring.
+          The Darwin backend is an MVP for Bazarr, Jellyfin, Prowlarr, Sonarr, Radarr, qBittorrent, and qBittorrent-based downloadarr wiring.
           Usenet, nginx, themes, mediaUsers, custom serviceDependencies, VPN, Seerr, Recyclarr, Lidarr, and FlareSolverr are not implemented on Darwin yet.
         '';
       }

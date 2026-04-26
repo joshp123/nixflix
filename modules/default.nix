@@ -5,6 +5,7 @@
   imports = [
     ./shared/core.nix
     ./backends/nixos
+    ./bazarr.nix
     ./downloadarr
     ./flaresolverr.nix
     ./globals.nix

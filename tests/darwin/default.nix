@@ -218,6 +218,58 @@ in
       echo 'PASS: darwin-arr-basic' > $out
     '';
 
+  darwin-bazarr-basic =
+    let
+      evaluated = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            nginx.enable = false;
+            sonarr = {
+              enable = true;
+              config = {
+                apiKey._secret = "/tmp/sonarr-api-key";
+                hostConfig.password._secret = "/tmp/sonarr-password";
+              };
+            };
+            radarr = {
+              enable = true;
+              config = {
+                apiKey._secret = "/tmp/radarr-api-key";
+                hostConfig.password._secret = "/tmp/radarr-password";
+              };
+            };
+            bazarr = {
+              enable = true;
+              config.opensubtitlescom = {
+                username._secret = "/tmp/opensubtitles-username";
+                password._secret = "/tmp/opensubtitles-password";
+              };
+            };
+          };
+        }
+      ];
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      service = findCommand "bazarr" manifest.services;
+      activation = evaluated.config.system.activationScripts.postActivation.text;
+    in
+    pkgs.runCommand "darwin-test-darwin-bazarr-basic" { } ''
+      ${lib.optionalString (
+        !(
+          hasCommand "bazarr" manifest.services
+          && builtins.length service.argv == 6
+          && builtins.elem "--no-update" service.argv
+          && !(evaluated.config.launchd.daemons ? bazarr)
+          && evaluated.config.nixflix.bazarr.user == "nixflix"
+          && evaluated.config.nixflix.bazarr.group == "staff"
+        )
+      ) "echo 'FAIL: darwin-bazarr-basic' && exit 1"}
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "write-bazarr-config.sh"} <<< ${lib.escapeShellArg activation}
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "/bazarr"} <<< ${lib.escapeShellArg activation}
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "/tmp/opensubtitles-username"} <<< ${lib.escapeShellArg activation}
+      echo 'PASS: darwin-bazarr-basic' > $out
+    '';
+
   darwin-prowlarr-applications =
     let
       evaluated = evalConfig [
