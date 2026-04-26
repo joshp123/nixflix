@@ -64,6 +64,9 @@
         // {
           default = self.packages.${system}.docs;
         }
+        // lib.optionalAttrs pkgs.stdenv.isDarwin {
+          nixflix-supervisor = pkgs.callPackage ./pkgs/nixflix-supervisor { };
+        }
       );
 
       apps = perSystemFor packageSystems (

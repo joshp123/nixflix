@@ -38,6 +38,10 @@ let
         type = lib.types.attrsOf lib.types.anything;
         default = { };
       };
+      environment.systemPackages = lib.mkOption {
+        type = lib.types.listOf lib.types.package;
+        default = [ ];
+      };
       warnings = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [ ];
@@ -62,6 +66,11 @@ let
       ${lib.optionalString (!cond) "echo 'FAIL: ${name}' && exit 1"}
       echo 'PASS: ${name}' > $out
     '';
+
+  hasCommand = name: commands: builtins.elem name (map (command: command.name) commands);
+
+  findCommand =
+    name: commands: builtins.head (builtins.filter (command: command.name == name) commands);
 in
 {
   darwin-eval-basic =
@@ -91,19 +100,19 @@ in
           };
         }
       ];
-      daemon = evaluated.config.launchd.daemons.prowlarr.serviceConfig;
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      service = findCommand "prowlarr" manifest.services;
+      job = findCommand "prowlarr-config" manifest.jobs;
     in
     assertTest "darwin-prowlarr-basic" (
-      evaluated.config.launchd.daemons ? prowlarr
-      && evaluated.config.launchd.daemons ? prowlarr-config
-      && daemon ? ProgramArguments
-      && builtins.length daemon.ProgramArguments == 1
-      && builtins.isString (builtins.elemAt daemon.ProgramArguments 0)
-      && builtins.isString (
-        builtins.elemAt evaluated.config.launchd.daemons.prowlarr-config.serviceConfig.ProgramArguments 0
-      )
-      && daemon.UserName == "_nixflix"
-      && daemon.GroupName == "_nixflix"
+      hasCommand "prowlarr" manifest.services
+      && hasCommand "prowlarr-config" manifest.jobs
+      && !(evaluated.config.launchd.daemons ? prowlarr)
+      && builtins.length service.argv == 1
+      && builtins.isString (builtins.elemAt service.argv 0)
+      && builtins.isString (builtins.elemAt job.argv 0)
+      && !(service ? UserName)
+      && !(service ? GroupName)
     );
 
   darwin-arr-basic =
@@ -118,6 +127,7 @@ in
               config = {
                 apiKey._secret = "/tmp/sonarr-api-key";
                 hostConfig.password._secret = "/tmp/sonarr-password";
+                hostConfig.authenticationRequired = "disabledForLocalAddresses";
                 rootFolders = [ { path = "/media/tv"; } ];
               };
             };
@@ -140,28 +150,29 @@ in
           };
         }
       ];
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      sonarr = findCommand "sonarr" manifest.services;
+      sonarrConfig = findCommand "sonarr-config" manifest.jobs;
     in
     assertTest "darwin-arr-basic" (
-      evaluated.config.launchd.daemons ? sonarr
-      && evaluated.config.launchd.daemons ? sonarr-config
+      hasCommand "sonarr" manifest.services
+      && hasCommand "sonarr-config" manifest.jobs
+      && !(evaluated.config.launchd.daemons ? sonarr)
       && !(evaluated.config.launchd.daemons ? sonarr-rootfolders)
       && !(evaluated.config.launchd.daemons ? sonarr-delayprofiles)
-      && builtins.isString (
-        builtins.elemAt evaluated.config.launchd.daemons.sonarr.serviceConfig.ProgramArguments 0
-      )
-      && builtins.isString (
-        builtins.elemAt evaluated.config.launchd.daemons.sonarr-config.serviceConfig.ProgramArguments 0
-      )
-      && evaluated.config.launchd.daemons ? sonarr-anime
-      && evaluated.config.launchd.daemons ? sonarr-anime-config
+      && builtins.isString (builtins.elemAt sonarr.argv 0)
+      && sonarr.env.SONARR__AUTH__REQUIRED == "DisabledForLocalAddresses"
+      && builtins.isString (builtins.elemAt sonarrConfig.argv 0)
+      && hasCommand "sonarr-anime" manifest.services
+      && hasCommand "sonarr-anime-config" manifest.jobs
+      && !(evaluated.config.launchd.daemons ? sonarr-anime)
       && !(evaluated.config.launchd.daemons ? sonarr-anime-rootfolders)
       && !(evaluated.config.launchd.daemons ? sonarr-anime-delayprofiles)
-      && evaluated.config.launchd.daemons ? radarr
-      && evaluated.config.launchd.daemons ? radarr-config
+      && hasCommand "radarr" manifest.services
+      && hasCommand "radarr-config" manifest.jobs
+      && !(evaluated.config.launchd.daemons ? radarr)
       && !(evaluated.config.launchd.daemons ? radarr-rootfolders)
       && !(evaluated.config.launchd.daemons ? radarr-delayprofiles)
-      && evaluated.config.launchd.daemons.sonarr.serviceConfig.UserName == "_nixflix"
-      && evaluated.config.launchd.daemons.radarr.serviceConfig.UserName == "_nixflix"
       && evaluated.config.nixflix.sonarr.config.hostConfig.bindAddress == "*"
       && evaluated.config.nixflix.radarr.config.hostConfig.bindAddress == "*"
     );
@@ -197,12 +208,13 @@ in
           };
         }
       ];
-      script = builtins.elemAt evaluated.config.launchd.daemons.prowlarr-config.serviceConfig.ProgramArguments 0;
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      script = builtins.elemAt (findCommand "prowlarr-config" manifest.jobs).argv 0;
     in
     pkgs.runCommand "darwin-test-darwin-prowlarr-applications" { } ''
       ${lib.optionalString (
         !(
-          evaluated.config.launchd.daemons ? prowlarr-config
+          hasCommand "prowlarr-config" manifest.jobs
           && !(evaluated.config.launchd.daemons ? prowlarr-applications)
           && builtins.length evaluated.config.nixflix.prowlarr.config.applications == 2
         )
@@ -246,12 +258,13 @@ in
           };
         }
       ];
-      script = builtins.elemAt evaluated.config.launchd.daemons.prowlarr-config.serviceConfig.ProgramArguments 0;
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      script = builtins.elemAt (findCommand "prowlarr-config" manifest.jobs).argv 0;
     in
     pkgs.runCommand "darwin-test-darwin-prowlarr-indexers" { } ''
       ${lib.optionalString (
         !(
-          evaluated.config.launchd.daemons ? prowlarr-config
+          hasCommand "prowlarr-config" manifest.jobs
           && !(evaluated.config.launchd.daemons ? prowlarr-indexers)
           && builtins.length evaluated.config.nixflix.prowlarr.config.indexers == 2
         )
@@ -294,19 +307,17 @@ in
           };
         }
       ];
-      daemon = evaluated.config.launchd.daemons.qbittorrent.serviceConfig;
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      service = findCommand "qbittorrent" manifest.services;
       activation = evaluated.config.system.activationScripts.users.text;
     in
     assertTest "darwin-qbittorrent-basic" (
-      evaluated.config.launchd.daemons ? qbittorrent
-      && daemon ? ProgramArguments
-      && builtins.any (arg: lib.hasPrefix "--profile=" arg) daemon.ProgramArguments
-      && builtins.any (arg: arg == "--webui-port=8282") daemon.ProgramArguments
-      && daemon.UserName == "_nixflix"
-      && daemon.GroupName == "_nixflix"
+      hasCommand "qbittorrent" manifest.services
+      && !(evaluated.config.launchd.daemons ? qbittorrent)
+      && builtins.any (arg: lib.hasPrefix "--profile=" arg) service.argv
+      && builtins.any (arg: arg == "--webui-port=8282") service.argv
       && evaluated.config.nixflix.torrentClients.qbittorrent.serverConfig.Preferences.WebUI.Address == "*"
       && lib.hasInfix "qBittorrent.ini" activation
-      && lib.hasInfix "launchctl bootout system/org.nixflix.qbittorrent" activation
       && !(lib.hasInfix "qBittorrent.conf" activation)
     );
 
@@ -354,11 +365,12 @@ in
           };
         }
       ];
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
     in
     assertTest "darwin-downloadarr-basic" (
-      evaluated.config.launchd.daemons ? sonarr-config
-      && evaluated.config.launchd.daemons ? radarr-config
-      && evaluated.config.launchd.daemons ? prowlarr-config
+      hasCommand "sonarr-config" manifest.jobs
+      && hasCommand "radarr-config" manifest.jobs
+      && hasCommand "prowlarr-config" manifest.jobs
       && !(evaluated.config.launchd.daemons ? sonarr-downloadclients)
       && !(evaluated.config.launchd.daemons ? radarr-downloadclients)
       && !(evaluated.config.launchd.daemons ? prowlarr-downloadclients)
@@ -409,7 +421,7 @@ in
           && evaluated.config.launchd.daemons ? jellyfin-config
           && daemon ? ProgramArguments
           && builtins.elem "--datadir" daemon.ProgramArguments
-          && daemon.UserName == "_nixflix"
+          && daemon.UserName == "nixflix"
           && libraries ? Shows
           && libraries ? Movies
           && libraries.Shows.paths == [ "/media/tv" ]
@@ -489,24 +501,24 @@ in
         ];
       };
       inherit (evaluated.config.launchd) daemons;
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
     in
     assertTest "darwin-system-mvp" (
-      evaluated.config.users.groups ? _nixflix
-      && evaluated.config.users.users._nixflix.isHidden
-      && evaluated.config.users.users._nixflix.gid == evaluated.config.users.groups._nixflix.gid
-      && daemons.jellyfin.serviceConfig.UserName == "_nixflix"
-      && daemons.sonarr.serviceConfig.UserName == "_nixflix"
-      && daemons.radarr.serviceConfig.UserName == "_nixflix"
-      && daemons.prowlarr.serviceConfig.UserName == "_nixflix"
-      && daemons.qbittorrent.serviceConfig.UserName == "_nixflix"
+      evaluated.config.users.users.nixflix.isHidden
+      && evaluated.config.users.users.nixflix.gid == 20
+      && daemons.jellyfin.serviceConfig.UserName == "nixflix"
+      && hasCommand "sonarr" manifest.services
+      && hasCommand "radarr" manifest.services
+      && hasCommand "prowlarr" manifest.services
+      && hasCommand "qbittorrent" manifest.services
       && evaluated.config.nixflix.prowlarr.config.hostConfig.bindAddress == "*"
       && evaluated.config.nixflix.sonarr.config.hostConfig.bindAddress == "*"
       && evaluated.config.nixflix.radarr.config.hostConfig.bindAddress == "*"
       && evaluated.config.nixflix.torrentClients.qbittorrent.serverConfig.Preferences.WebUI.Address == "*"
       && daemons ? jellyfin-config
-      && daemons ? sonarr-config
-      && daemons ? radarr-config
-      && daemons ? prowlarr-config
+      && hasCommand "sonarr-config" manifest.jobs
+      && hasCommand "radarr-config" manifest.jobs
+      && hasCommand "prowlarr-config" manifest.jobs
       && builtins.length evaluated.config.nixflix.prowlarr.config.indexers == 2
     );
 }

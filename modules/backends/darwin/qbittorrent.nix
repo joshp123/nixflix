@@ -37,7 +37,30 @@ let
         mkKeyValueDefault { } sep k v;
   };
   configFile = pkgs.writeText "qBittorrent.ini" (gendeepINI cfg.serverConfig);
-  mkLaunchdService = import ./mk-launchd-service.nix { inherit lib; };
+  serviceSpec = {
+    name = "qbittorrent";
+    argv = [
+      "${getExe (cfg.package or pkgs.qbittorrent-nox)}"
+      "--profile=${profileDir}"
+    ]
+    ++ optionals (cfg.webuiPort != null) [ "--webui-port=${toString cfg.webuiPort}" ]
+    ++ optionals ((cfg.torrentingPort or null) != null) [
+      "--torrenting-port=${toString cfg.torrentingPort}"
+    ]
+    ++ (cfg.extraArgs or [ ]);
+    cwd = profileDir;
+    stdout = "${stateDir}/stdout.log";
+    stderr = "${stateDir}/stderr.log";
+    env = {
+      HOME = profileDir;
+      PATH = "${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.qbittorrent-nox
+        ]
+      }:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+  };
 in
 {
   imports = [ ../../torrentClients/qbittorrent.nix ];
@@ -45,8 +68,8 @@ in
   config = mkIf config.nixflix.enable (mkMerge [
     {
       nixflix.torrentClients.qbittorrent = {
-        user = mkOverride 900 "_nixflix";
-        group = mkOverride 900 "_nixflix";
+        user = mkOverride 900 "nixflix";
+        group = mkOverride 900 "staff";
         serverConfig.Preferences.WebUI.Address = mkDefault "*";
       };
     }
@@ -71,61 +94,12 @@ in
         ${concatMapStringsSep "\n" (path: "mkdir -p '${path}'") (
           attrValues (filterAttrs (_name: path: path != "") cfg.categories)
         )}
-        restart_qbittorrent=0
-        if [ -f '${configDir}/qBittorrent.ini' ] && ! cmp -s '${configFile}' '${configDir}/qBittorrent.ini'; then
-          if /bin/launchctl print system/org.nixflix.qbittorrent >/dev/null 2>&1; then
-            restart_qbittorrent=1
-            /bin/launchctl bootout system/org.nixflix.qbittorrent >/dev/null 2>&1 || true
-            for _ in $(seq 1 30); do
-              if ! /bin/launchctl print system/org.nixflix.qbittorrent >/dev/null 2>&1; then
-                break
-              fi
-              sleep 1
-            done
-          fi
-        fi
         install -m 600 '${configFile}' '${configDir}/qBittorrent.ini'
         install -m 640 '${categoriesFile}' '${configDir}/categories.json'
-        chown -R '${cfg.user}:${cfg.group}' '${stateDir}' '${profileDir}' '${cfg.downloadsDir}' '${cfg.serverConfig.BitTorrent.Session.DefaultSavePath}'
-        ${concatMapStringsSep "\n" (path: "chown '${cfg.user}:${cfg.group}' '${path}'") (
-          attrValues (filterAttrs (_name: path: path != "") cfg.categories)
-        )}
-        if [ "$restart_qbittorrent" -eq 1 ] && [ -f /Library/LaunchDaemons/org.nixflix.qbittorrent.plist ]; then
-          /bin/launchctl bootstrap system /Library/LaunchDaemons/org.nixflix.qbittorrent.plist >/dev/null 2>&1 || true
-          /bin/launchctl enable system/org.nixflix.qbittorrent >/dev/null 2>&1 || true
-          /bin/launchctl kickstart -k system/org.nixflix.qbittorrent >/dev/null 2>&1 || true
-        fi
+        chown -R '${cfg.user}:${cfg.group}' '${stateDir}' '${profileDir}'
       '';
 
-      launchd.daemons.qbittorrent = mkLaunchdService {
-        name = "qbittorrent";
-        label = "org.nixflix.qbittorrent";
-        serviceConfig = {
-          ProgramArguments = [
-            "${getExe (cfg.package or pkgs.qbittorrent-nox)}"
-            "--profile=${profileDir}"
-          ]
-          ++ optionals (cfg.webuiPort != null) [ "--webui-port=${toString cfg.webuiPort}" ]
-          ++ optionals ((cfg.torrentingPort or null) != null) [
-            "--torrenting-port=${toString cfg.torrentingPort}"
-          ]
-          ++ (cfg.extraArgs or [ ]);
-          WorkingDirectory = profileDir;
-          UserName = cfg.user;
-          GroupName = cfg.group;
-          StandardOutPath = "${stateDir}/stdout.log";
-          StandardErrorPath = "${stateDir}/stderr.log";
-          EnvironmentVariables = {
-            HOME = profileDir;
-            PATH = "${
-              lib.makeBinPath [
-                pkgs.coreutils
-                pkgs.qbittorrent-nox
-              ]
-            }:/usr/bin:/bin:/usr/sbin:/sbin";
-          };
-        };
-      };
+      nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
     })
   ]);
 }

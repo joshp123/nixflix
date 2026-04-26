@@ -23,6 +23,12 @@ let
   capitalizedName = toUpper (substring 0 1 serviceName) + substring 1 (-1) serviceName;
   usesMediaDirs = !(elem serviceName [ "prowlarr" ]);
   serviceBase = builtins.elemAt (splitString "-" serviceName) 0;
+  toServarrEnum =
+    value:
+    if value == "disabledForLocalAddresses" then
+      "DisabledForLocalAddresses"
+    else
+      toUpper (substring 0 1 value) + substring 1 (-1) value;
 in
 {
   options.nixflix.${serviceName} = {
@@ -188,8 +194,8 @@ in
     nixflix.${serviceName} = {
       settings = {
         auth = {
-          required = "Enabled";
-          method = "Forms";
+          required = toServarrEnum cfg.config.hostConfig.authenticationRequired;
+          method = toServarrEnum cfg.config.hostConfig.authenticationMethod;
         };
         server = { inherit (cfg.config.hostConfig) port urlBase; };
       };

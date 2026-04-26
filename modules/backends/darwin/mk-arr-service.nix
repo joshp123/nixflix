@@ -27,7 +27,6 @@ let
   mkDownloadClientsJob = import ../../downloadarr/mkDownloadClientsJob.nix {
     inherit config lib pkgs;
   };
-  mkLaunchdService = import ./mk-launchd-service.nix { inherit lib; };
   mkLaunchdOneshot = import ./mk-launchd-oneshot.nix { inherit pkgs; };
   mkServarrSettingsEnvVars = import ../../arr-common/mkServarrSettingsEnvVars.nix { inherit lib; };
   secrets = import ../../../lib/secrets { inherit lib; };
@@ -36,9 +35,7 @@ let
   stateDir = "${config.nixflix.stateDir}/${serviceName}";
   logDir = "${stateDir}/logs";
   serviceBase = builtins.elemAt (splitString "-" serviceName) 0;
-  daemonLabel = "org.nixflix.${serviceName}";
   apiKeyEnvVar = "${toUpper serviceBase}__AUTH__APIKEY";
-  serviceEnvFile = "${stateDir}/nixflix.env";
   commonPath = "${
     lib.makeBinPath [
       pkgs.coreutils
@@ -99,10 +96,10 @@ let
   launchScript = pkgs.writeShellScript "${serviceName}-launch" ''
     set -eu
 
-    if [ -f '${serviceEnvFile}' ]; then
-      . '${serviceEnvFile}'
-      export ${apiKeyEnvVar}
-    fi
+    ${optionalString (cfg.config.apiKey != null) ''
+      api_key=${secrets.toShellValue cfg.config.apiKey}
+      export ${apiKeyEnvVar}="$api_key"
+    ''}
 
     exec ${getExe cfg.package} -nobrowser -data='${stateDir}'
   '';
@@ -114,7 +111,6 @@ let
     ''
       ${waitForApi}
       ${job.script}
-      /bin/launchctl kickstart -k system/${daemonLabel}
       ${waitForApi}
     ''
   );
@@ -149,6 +145,47 @@ let
       ${job.script}
     ''
   );
+
+  serviceSpec = {
+    name = serviceName;
+    argv = [ "${launchScript}" ];
+    cwd = stateDir;
+    stdout = "${logDir}/stdout.log";
+    stderr = "${logDir}/stderr.log";
+    env = (mkServarrSettingsEnvVars (toUpper serviceBase) cfg.settings) // {
+      HOME = stateDir;
+      PATH = commonPath;
+    };
+  };
+
+  configOneshot = mkLaunchdOneshot {
+    name = "${serviceName}-config";
+    standardOutPath = "${logDir}/${serviceName}-config.stdout.log";
+    standardErrorPath = "${logDir}/${serviceName}-config.stderr.log";
+    workingDirectory = stateDir;
+    environment = {
+      HOME = stateDir;
+      PATH = commonPath;
+    };
+    script = concatStringsSep "\n" (
+      [
+        hostConfigScript
+        rootFoldersScript
+        delayProfilesScript
+        downloadClientsScript
+      ]
+      ++ extraConvergenceScripts
+    );
+  };
+
+  configSpec = {
+    name = "${serviceName}-config";
+    argv = configOneshot.serviceConfig.ProgramArguments;
+    cwd = configOneshot.serviceConfig.WorkingDirectory;
+    stdout = configOneshot.serviceConfig.StandardOutPath;
+    stderr = configOneshot.serviceConfig.StandardErrorPath;
+    env = configOneshot.serviceConfig.EnvironmentVariables;
+  };
 in
 {
   imports = [
@@ -182,8 +219,8 @@ in
     ];
 
     nixflix.${serviceName} = {
-      user = mkOverride 900 "_nixflix";
-      group = mkOverride 900 "_nixflix";
+      user = mkOverride 900 "nixflix";
+      group = mkOverride 900 "staff";
       config.hostConfig.bindAddress = mkDefault "*";
     };
 
@@ -191,54 +228,9 @@ in
       mkdir -p '${stateDir}' '${logDir}'
       ${concatMapStringsSep "\n" (path: "mkdir -p '${toString path}'") (cfg.mediaDirs or [ ])}
       chown -R '${cfg.user}:${cfg.group}' '${stateDir}'
-      ${concatMapStringsSep "\n" (path: "chown '${cfg.user}:${cfg.group}' '${toString path}'") (
-        cfg.mediaDirs or [ ]
-      )}
-      ${optionalString (cfg.config.apiKey != null) ''
-        tmp_env="$(mktemp '${stateDir}/nixflix.env.XXXXXX')"
-        api_key=${secrets.toShellValue cfg.config.apiKey}
-        printf '%s=%s\n' '${apiKeyEnvVar}' "$api_key" > "$tmp_env"
-        chown '${cfg.user}:${cfg.group}' "$tmp_env"
-        chmod 0400 "$tmp_env"
-        mv "$tmp_env" '${serviceEnvFile}'
-      ''}
     '';
 
-    launchd.daemons.${serviceName} = mkLaunchdService {
-      name = serviceName;
-      label = daemonLabel;
-      serviceConfig = {
-        ProgramArguments = [ "${launchScript}" ];
-        WorkingDirectory = stateDir;
-        UserName = cfg.user;
-        GroupName = cfg.group;
-        StandardOutPath = "${logDir}/stdout.log";
-        StandardErrorPath = "${logDir}/stderr.log";
-        EnvironmentVariables = (mkServarrSettingsEnvVars (toUpper serviceBase) cfg.settings) // {
-          HOME = stateDir;
-          PATH = commonPath;
-        };
-      };
-    };
-
-    launchd.daemons."${serviceName}-config" = mkIf hasConvergence (mkLaunchdOneshot {
-      name = "${serviceName}-config";
-      standardOutPath = "${logDir}/${serviceName}-config.stdout.log";
-      standardErrorPath = "${logDir}/${serviceName}-config.stderr.log";
-      workingDirectory = stateDir;
-      environment = {
-        HOME = stateDir;
-        PATH = commonPath;
-      };
-      script = concatStringsSep "\n" (
-        [
-          hostConfigScript
-          rootFoldersScript
-          delayProfilesScript
-          downloadClientsScript
-        ]
-        ++ extraConvergenceScripts
-      );
-    });
+    nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
+    nixflix.runtime.darwinSupervisorManifest.jobs = mkIf hasConvergence [ configSpec ];
   };
 }

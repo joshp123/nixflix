@@ -8,6 +8,7 @@ with lib;
   imports = [
     ../../shared/core.nix
     ../../globals.nix
+    ./supervisor.nix
     ./downloadarr.nix
     ./jellyfin.nix
     ./prowlarr.nix
@@ -38,24 +39,19 @@ with lib;
       }
     ];
 
-    users.knownGroups = [ "_nixflix" ];
-    users.knownUsers = [ "_nixflix" ];
-    users.groups."_nixflix" = {
-      gid = mkDefault 535;
-      description = "Nixflix service group";
-    };
-    users.users."_nixflix" = {
+    users.knownUsers = [ "nixflix" ];
+    users.users.nixflix = {
       uid = mkDefault 535;
-      gid = mkDefault config.users.groups."_nixflix".gid;
-      description = "Nixflix service user";
-      home = config.nixflix.stateDir;
-      isHidden = true;
-      createHome = false;
+      gid = mkDefault 20;
+      description = mkDefault "Nixflix appliance user";
+      home = mkDefault config.nixflix.stateDir;
+      isHidden = mkDefault true;
+      createHome = mkDefault false;
     };
 
     system.activationScripts.users.text = mkAfter ''
       mkdir -p '${config.nixflix.stateDir}' '${config.nixflix.mediaDir}' '${config.nixflix.downloadsDir}'
-      chown '_nixflix:_nixflix' '${config.nixflix.stateDir}' '${config.nixflix.mediaDir}' '${config.nixflix.downloadsDir}'
+      chown 'nixflix:staff' '${config.nixflix.stateDir}'
     '';
   };
 }

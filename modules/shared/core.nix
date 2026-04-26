@@ -149,7 +149,9 @@ with lib;
     };
 
     runtime = mkOption {
-      type = types.attrsOf types.anything;
+      type = types.submodule {
+        freeformType = types.attrsOf types.anything;
+      };
       default = { };
       internal = true;
       description = "Internal runtime metadata derived by backend-specific service modules.";

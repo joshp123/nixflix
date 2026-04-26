@@ -42,7 +42,6 @@ types.submodule {
     authenticationRequired = mkOption {
       type = types.enum [
         "enabled"
-        "disabled"
         "disabledForLocalAddresses"
       ];
       default = "enabled";
