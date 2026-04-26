@@ -310,6 +310,7 @@ in
       manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
       service = findCommand "qbittorrent" manifest.services;
       activation = evaluated.config.system.activationScripts.users.text;
+      postActivation = evaluated.config.system.activationScripts.postActivation.text;
     in
     assertTest "darwin-qbittorrent-basic" (
       hasCommand "qbittorrent" manifest.services
@@ -319,6 +320,8 @@ in
       && evaluated.config.nixflix.torrentClients.qbittorrent.serverConfig.Preferences.WebUI.Address == "*"
       && lib.hasInfix "qBittorrent.ini" activation
       && !(lib.hasInfix "qBittorrent.conf" activation)
+      && lib.hasInfix "install-supervisor.sh" postActivation
+      && !(lib.hasInfix "supervisor-launchagent.plist" postActivation)
     );
 
   darwin-downloadarr-basic =

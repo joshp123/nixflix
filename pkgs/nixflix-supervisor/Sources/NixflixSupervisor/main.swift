@@ -31,6 +31,7 @@ enum SupervisorError: Error, CustomStringConvertible {
     case invalidCommand(String)
     case commandFailed(String, Int32)
     case hardlinkMismatch(String, String)
+    case networkVolumeUnavailable(String)
 
     var description: String {
         switch self {
@@ -42,6 +43,8 @@ enum SupervisorError: Error, CustomStringConvertible {
             return "command '\(name)' failed with exit status \(status)"
         case .hardlinkMismatch(let source, let target):
             return "hardlink self-test failed: \(source) and \(target) are not the same inode with link count >= 2"
+        case .networkVolumeUnavailable(let path):
+            return "network volume unavailable for self-test path: \(path)"
         }
     }
 }
@@ -108,6 +111,38 @@ func statInfo(_ path: String) throws -> stat {
     return info
 }
 
+func fileSystemType(for path: String) throws -> String {
+    var info = statfs()
+    if statfs(path, &info) != 0 {
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
+
+    var fileSystemName = info.f_fstypename
+    let fileSystemNameSize = MemoryLayout.size(ofValue: fileSystemName)
+    return withUnsafePointer(to: &fileSystemName) { pointer in
+        pointer.withMemoryRebound(to: CChar.self, capacity: fileSystemNameSize) {
+            String(cString: $0)
+        }
+    }
+}
+
+func waitForNetworkVolume(containing path: String, logger: Logger) throws {
+    let directory = URL(fileURLWithPath: path).deletingLastPathComponent().path
+    let deadline = Date().addingTimeInterval(180)
+
+    while Date() < deadline {
+        if FileManager.default.fileExists(atPath: directory),
+           (try? fileSystemType(for: directory)) == "nfs" {
+            return
+        }
+
+        logger.info("waiting for NAS mount before self-test: \(directory)")
+        Thread.sleep(forTimeInterval: 5)
+    }
+
+    throw SupervisorError.networkVolumeUnavailable(directory)
+}
+
 @discardableResult
 func run(_ spec: CommandSpec, logger: Logger, wait: Bool) throws -> Process {
     guard let executable = spec.argv.first else {
@@ -155,6 +190,7 @@ func run(_ spec: CommandSpec, logger: Logger, wait: Bool) throws -> Process {
 }
 
 func runSelfTest(_ selfTest: SelfTest, logger: Logger) throws {
+    try waitForNetworkVolume(containing: selfTest.directWritePath, logger: logger)
     logger.info("running NAS write and hardlink self-test")
     try writeText("nixflix supervisor direct write\n", to: selfTest.directWritePath)
 
@@ -210,12 +246,14 @@ func servicesNeedingRestart(after jobs: [CommandSpec], services: [(spec: Command
         .compactMap { name in services.first { $0.spec.name == name }?.process }
 }
 
+func defaultManifestPath() -> String {
+    "\(NSHomeDirectory())/Library/Application Support/nixflix/supervisor-manifest.json"
+}
+
 func runSupervisor() throws {
     let manifestPath = CommandLine.arguments.dropFirst().first
         ?? ProcessInfo.processInfo.environment["NIXFLIX_SUPERVISOR_MANIFEST"]
-    guard let manifestPath else {
-        throw SupervisorError.missingManifest
-    }
+        ?? defaultManifestPath()
 
     let data = try Data(contentsOf: URL(fileURLWithPath: manifestPath))
     let manifest = try JSONDecoder().decode(Manifest.self, from: data)
@@ -257,8 +295,21 @@ func runSupervisor() throws {
 
     logger.info("supervising \(services.count) service process(es)")
     while true {
-        for service in services.map(\.process) where !service.isRunning {
-            throw SupervisorError.commandFailed(service.executableURL?.lastPathComponent ?? "service", service.terminationStatus)
+        services.removeAll { service in
+            guard !service.process.isRunning else {
+                return false
+            }
+
+            if service.process.terminationStatus == 0 {
+                logger.info("\(service.spec.name) starter exited cleanly")
+                return true
+            }
+
+            return false
+        }
+
+        for service in services where !service.process.isRunning {
+            throw SupervisorError.commandFailed(service.spec.name, service.process.terminationStatus)
         }
         Thread.sleep(forTimeInterval: 5)
     }

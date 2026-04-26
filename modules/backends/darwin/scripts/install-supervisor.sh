@@ -7,7 +7,14 @@ log_dir="${3:?usage: install-supervisor.sh USER HOME LOG_DIR APP_SRC MANIFEST}"
 supervisor_app_src="${4:?usage: install-supervisor.sh USER HOME LOG_DIR APP_SRC MANIFEST}"
 manifest="${5:?usage: install-supervisor.sh USER HOME LOG_DIR APP_SRC MANIFEST}"
 
+app_path="/Applications/NixflixSupervisor.app"
+manifest_dir="$user_home/Library/Application Support/nixflix"
+stable_manifest="$manifest_dir/supervisor-manifest.json"
+
 /bin/launchctl bootout system/com.jjpcodes.nixflix.supervisor >/dev/null 2>&1 || true
+/bin/launchctl bootout system/com.jjpcodes.nixflix.supervisor-test-direct >/dev/null 2>&1 || true
+rm -f /Library/LaunchDaemons/com.jjpcodes.nixflix.supervisor.plist
+rm -f /Library/LaunchDaemons/com.jjpcodes.nixflix.supervisor-test-direct.plist
 
 uid="$(id -u "$supervisor_user" 2>/dev/null || true)"
 if [ -n "$uid" ]; then
@@ -38,7 +45,9 @@ if [ -n "$uid" ]; then
   done
 
   /bin/launchctl bootout "gui/$uid" "$user_home/Library/LaunchAgents/com.jjpcodes.nixflix.supervisor.plist" >/dev/null 2>&1 || true
+  /bin/launchctl bootout "gui/$uid" "$user_home/Library/LaunchAgents/com.jjpcodes.nixflix.supervisor-direct-agent.plist" >/dev/null 2>&1 || true
   rm -f "$user_home/Library/LaunchAgents/com.jjpcodes.nixflix.supervisor.plist"
+  rm -f "$user_home/Library/LaunchAgents/com.jjpcodes.nixflix.supervisor-direct-agent.plist"
 fi
 
 /usr/bin/pkill -x NixflixSupervisor >/dev/null 2>&1 || true
@@ -47,15 +56,20 @@ fi
 /usr/bin/pkill -u "$supervisor_user" -x Radarr >/dev/null 2>&1 || true
 /usr/bin/pkill -u "$supervisor_user" -x Prowlarr >/dev/null 2>&1 || true
 
-rm -rf /Applications/NixflixSupervisor.app
-cp -R "$supervisor_app_src" /Applications/NixflixSupervisor.app
-chown -R root:wheel /Applications/NixflixSupervisor.app
+rm -rf "$app_path"
+cp -R "$supervisor_app_src" "$app_path"
+chown -R root:wheel "$app_path"
 
 mkdir -p "$log_dir"
 chown -R "$supervisor_user:staff" "$log_dir"
 
+mkdir -p "$manifest_dir"
+cp "$manifest" "$stable_manifest"
+chown -R "$supervisor_user:staff" "$manifest_dir"
+chmod 0644 "$stable_manifest"
+
 if [ -n "$uid" ] && /bin/launchctl print "gui/$uid" >/dev/null 2>&1; then
   /bin/launchctl asuser "$uid" /usr/bin/sudo -u "$supervisor_user" \
-    /Applications/NixflixSupervisor.app/Contents/MacOS/NixflixSupervisor "$manifest" \
+    "$app_path/Contents/MacOS/NixflixSupervisor" "$stable_manifest" \
     >> /var/log/nixflix-supervisor-bootstrap.log 2>&1 &
 fi
