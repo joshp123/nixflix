@@ -29,8 +29,12 @@ jq -c '.[]' "$profiles_json" | while IFS= read -r configured_profile; do
   fi
 
   source_name="$(printf '%s\n' "$configured_profile" | jq -r '.sourceName // empty')"
+  existing_profile="$(printf '%s\n' "$profiles" | jq -c --arg name "$profile_name" 'first(.[] | select(.name == $name)) // empty')"
   if [ -n "$source_name" ]; then
-    source_profile="$(printf '%s\n' "$profiles" | jq -c --arg name "$source_name" 'first(.[] | select(.name == $name)) // empty')"
+    source_profile="$existing_profile"
+    if [ -z "$source_profile" ]; then
+      source_profile="$(printf '%s\n' "$profiles" | jq -c --arg name "$source_name" 'first(.[] | select(.name == $name)) // empty')"
+    fi
     if [ -z "$source_profile" ]; then
       echo "Source quality profile not found for ${profile_name}: ${source_name}" >&2
       exit 1
@@ -66,8 +70,6 @@ jq -c '.[]' "$profiles_json" | while IFS= read -r configured_profile; do
         '
     )"
   fi
-
-  existing_profile="$(printf '%s\n' "$profiles" | jq -c --arg name "$profile_name" 'first(.[] | select(.name == $name)) // empty')"
 
   if [ -n "$existing_profile" ]; then
     profile_id="$(printf '%s\n' "$existing_profile" | jq -r '.id')"

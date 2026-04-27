@@ -24,5 +24,7 @@
   <true/>
   <key>NSNetworkVolumesUsageDescription</key>
   <string>Nixflix writes downloads and media imports to the NAS.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Nixflix connects to Plex and local media services on the home LAN.</string>
 </dict>
 </plist>

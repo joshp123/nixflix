@@ -270,6 +270,88 @@ in
       echo 'PASS: darwin-bazarr-basic' > $out
     '';
 
+  darwin-seerr-basic =
+    let
+      evaluated = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            nginx.enable = false;
+            seerr = {
+              enable = true;
+              plex = {
+                enable = true;
+                hostname = "192.168.1.163";
+              };
+              radarr.Radarr = {
+                apiKey._secret = "/tmp/radarr-api-key";
+                baseUrl = "/radarr";
+                activeProfileName = "Best";
+                activeDirectory = "/media/movies";
+                preventSearch = true;
+              };
+              sonarr.Sonarr = {
+                apiKey._secret = "/tmp/sonarr-api-key";
+                baseUrl = "/sonarr";
+                activeProfileName = "Best";
+                activeAnimeProfileName = "Best";
+                activeDirectory = "/media/tv";
+                preventSearch = true;
+              };
+            };
+            radarr = {
+              enable = true;
+              config = {
+                apiKey._secret = "/tmp/radarr-api-key";
+                hostConfig.password._secret = "/tmp/radarr-password";
+              };
+            };
+            sonarr = {
+              enable = true;
+              config = {
+                apiKey._secret = "/tmp/sonarr-api-key";
+                hostConfig.password._secret = "/tmp/sonarr-password";
+              };
+            };
+          };
+        }
+      ];
+      manifest = evaluated.config.nixflix.runtime.darwinSupervisorManifest;
+      service = findCommand "seerr" manifest.services;
+      job = findCommand "seerr-plex-config" manifest.jobs;
+      radarrJob = findCommand "seerr-radarr-config-Radarr" manifest.jobs;
+      sonarrJob = findCommand "seerr-sonarr-config-Sonarr" manifest.jobs;
+      radarrPruneJob = findCommand "seerr-radarr-prune" manifest.jobs;
+      sonarrPruneJob = findCommand "seerr-sonarr-prune" manifest.jobs;
+      activation = evaluated.config.system.activationScripts.postActivation.text;
+    in
+    assertTest "darwin-seerr-basic" (
+      hasCommand "seerr" manifest.services
+      && hasCommand "seerr-plex-config" manifest.jobs
+      && hasCommand "seerr-radarr-config-Radarr" manifest.jobs
+      && hasCommand "seerr-sonarr-config-Sonarr" manifest.jobs
+      && hasCommand "seerr-radarr-prune" manifest.jobs
+      && hasCommand "seerr-sonarr-prune" manifest.jobs
+      && builtins.length service.argv == 1
+      && builtins.elem "192.168.1.163" job.argv
+      && builtins.elem "/tmp/radarr-api-key" radarrJob.argv
+      && builtins.elem "/tmp/sonarr-api-key" sonarrJob.argv
+      && builtins.any (
+        arg: lib.hasInfix "seerr-radarr-configured-names.json" (toString arg)
+      ) radarrPruneJob.argv
+      && builtins.any (
+        arg: lib.hasInfix "seerr-sonarr-configured-names.json" (toString arg)
+      ) sonarrPruneJob.argv
+      && service.cwd == toString evaluated.config.nixflix.seerr.dataDir
+      && service.env.CONFIG_DIRECTORY == toString evaluated.config.nixflix.seerr.dataDir
+      && service.env.HOST == "127.0.0.1"
+      && service.env.PORT == "5055"
+      && !(evaluated.config.launchd.daemons ? seerr)
+      && evaluated.config.nixflix.seerr.user == "nixflix"
+      && evaluated.config.nixflix.seerr.group == "staff"
+      && lib.hasInfix "activate-seerr.sh" activation
+    );
+
   darwin-prowlarr-applications =
     let
       evaluated = evalConfig [
@@ -314,8 +396,13 @@ in
       ) "echo 'FAIL: darwin-prowlarr-applications' && exit 1"}
       ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "radarr-wait-for-api"} '${script}'
       ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "sonarr-wait-for-api"} '${script}'
+      ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "write-arr-config.sh"} '${builtins.elemAt (findCommand "prowlarr" manifest.services).argv 0}'
       if ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "7878/api/v3/system/status"} '${script}'; then
         echo 'FAIL: darwin-prowlarr-applications uses unauthenticated Radarr wait'
+        exit 1
+      fi
+      if ${pkgs.gnugrep}/bin/grep -q ${lib.escapeShellArg "Fetching indexer schemas"} '${script}'; then
+        echo 'FAIL: darwin-prowlarr-applications deletes manual indexers when none are declared'
         exit 1
       fi
       echo 'PASS: darwin-prowlarr-applications' > $out

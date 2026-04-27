@@ -38,6 +38,7 @@ let
   logDir = "${stateDir}/logs";
   serviceBase = builtins.elemAt (splitString "-" serviceName) 0;
   apiKeyEnvVar = "${toUpper serviceBase}__AUTH__APIKEY";
+  writeArrConfig = pkgs.replaceVars ./scripts/write-arr-config.sh { };
   commonPath = "${
     lib.makeBinPath [
       pkgs.coreutils
@@ -63,7 +64,6 @@ let
     "radarr"
     "sonarr"
     "sonarr-anime"
-    "prowlarr"
   ];
 
   waitForApi = mkWaitForApiScript serviceName cfg.config;
@@ -83,7 +83,8 @@ let
   hasHostConfig = cfg.config.apiKey != null && cfg.config.hostConfig.password != null;
   hasRootFolders = usesMediaDirs && cfg.config.apiKey != null && cfg.config.rootFolders != [ ];
   hasDelayProfiles = usesMediaDirs && cfg.config.apiKey != null;
-  hasQualityProfiles = usesMediaDirs && cfg.config.apiKey != null && cfg.config.qualityProfiles != [ ];
+  hasQualityProfiles =
+    usesMediaDirs && cfg.config.apiKey != null && cfg.config.qualityProfiles != [ ];
   hasCustomFormats = usesMediaDirs && cfg.config.apiKey != null && cfg.config.customFormats != [ ];
   hasDownloadClients =
     cfg.config.apiKey != null
@@ -104,6 +105,7 @@ let
 
     ${optionalString (cfg.config.apiKey != null) ''
       api_key=${secrets.toShellValue cfg.config.apiKey}
+      /bin/bash '${writeArrConfig}' '${stateDir}' "$api_key" '${cfg.config.hostConfig.bindAddress}' '${cfg.config.hostConfig.branch}'
       export ${apiKeyEnvVar}="$api_key"
     ''}
 

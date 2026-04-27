@@ -63,6 +63,7 @@
         (import ./docs { inherit pkgs inputs; })
         // {
           default = self.packages.${system}.docs;
+          seerr = pkgs.callPackage ./pkgs/seerr { };
         }
         // lib.optionalAttrs pkgs.stdenv.isDarwin {
           nixflix-supervisor = pkgs.callPackage ./pkgs/nixflix-supervisor { };

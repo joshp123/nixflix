@@ -11,6 +11,7 @@ in
 {
   imports = [
     ./jellyfin.nix
+    ./plex.nix
     ./radarr.nix
     ./sonarr.nix
     ./users.nix
@@ -22,6 +23,7 @@ in
     package = mkPackageOption pkgs "seerr" { };
 
     apiKey = secrets.mkSecretOption {
+      nullable = true;
       description = "API key for Seerr.";
     };
 

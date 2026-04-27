@@ -103,8 +103,8 @@ in
     ];
 
     nixflix.jellyfin = {
-      user = mkOverride 900 "_nixflix";
-      group = mkOverride 900 "_nixflix";
+      user = mkOverride 900 "nixflix";
+      group = mkOverride 900 "staff";
     };
 
     system.activationScripts.users.text = mkAfter ''

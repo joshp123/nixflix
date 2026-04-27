@@ -31,10 +31,10 @@ in
           ${optionalString config.nixflix.sonarr-anime.enable (waitForApi "sonarr-anime")}
           ${applicationsJob.mkJob.script}
         ''
-        ''
+        (optionalString (cfg.config.indexers != [ ]) ''
           ${waitForApi "prowlarr"}
           ${indexersJob.mkJob.script}
-        ''
+        '')
       ];
     })
   ];

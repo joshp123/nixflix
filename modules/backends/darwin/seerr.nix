@@ -1,0 +1,221 @@
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+with lib;
+let
+  cfg = config.nixflix.seerr;
+  stateDir = toString cfg.dataDir;
+  logDir = "${stateDir}/logs";
+  activateSeerr = builtins.path {
+    path = ./scripts/activate-seerr.sh;
+    name = "activate-seerr.sh";
+  };
+  configurePlex = builtins.path {
+    path = ./scripts/configure-seerr-plex.sh;
+    name = "configure-seerr-plex.sh";
+  };
+  configureArr = builtins.path {
+    path = ./scripts/configure-seerr-arr.sh;
+    name = "configure-seerr-arr.sh";
+  };
+  pruneArr = builtins.path {
+    path = ./scripts/prune-seerr-arr.sh;
+    name = "prune-seerr-arr.sh";
+  };
+  seerrPackage = pkgs.callPackage ../../../pkgs/seerr { };
+  secrets = import ../../../lib/secrets { inherit lib; };
+  libraryNamesFile = pkgs.writeText "seerr-plex-library-names.json" (
+    builtins.toJSON cfg.plex.libraryNames
+  );
+  secretArgs =
+    value:
+    if secrets.isSecretRef value then
+      [
+        "file"
+        (toString value._secret)
+      ]
+    else
+      [
+        "literal"
+        (toString value)
+      ];
+  mkConfigFile =
+    kind: name: values:
+    pkgs.writeText "seerr-${kind}-${name}.json" (
+      builtins.toJSON (
+        {
+          inherit name;
+          inherit (values)
+            hostname
+            port
+            useSsl
+            baseUrl
+            activeProfileName
+            activeDirectory
+            is4k
+            isDefault
+            externalUrl
+            syncEnabled
+            preventSearch
+            ;
+        }
+        // optionalAttrs (kind == "radarr") {
+          inherit (values) minimumAvailability;
+        }
+        // optionalAttrs (kind == "sonarr") {
+          inherit (values)
+            activeAnimeProfileName
+            activeAnimeDirectory
+            seriesType
+            animeSeriesType
+            enableSeasonFolders
+            ;
+        }
+      )
+    );
+  mkArrJob =
+    kind: name: values:
+    let
+      configFile = mkConfigFile kind name values;
+    in
+    {
+      name = "seerr-${kind}-config-${builtins.replaceStrings [ " " "-" ] [ "_" "_" ] name}";
+      argv = [
+        "/bin/bash"
+        configureArr
+        "${pkgs.curl}/bin/curl"
+        "${pkgs.jq}/bin/jq"
+        "http://127.0.0.1:${toString cfg.port}"
+        "${stateDir}/settings.json"
+        kind
+        configFile
+      ]
+      ++ secretArgs values.apiKey;
+      cwd = stateDir;
+      stdout = "${logDir}/seerr-${kind}-config-${name}.stdout.log";
+      stderr = "${logDir}/seerr-${kind}-config-${name}.stderr.log";
+      env = {
+        HOME = stateDir;
+        PATH = "${
+          lib.makeBinPath [
+            pkgs.coreutils
+            pkgs.curl
+            pkgs.jq
+          ]
+        }:/usr/bin:/bin:/usr/sbin:/sbin";
+      };
+    };
+  arrJobs =
+    (mapAttrsToList (mkArrJob "radarr") cfg.radarr) ++ (mapAttrsToList (mkArrJob "sonarr") cfg.sonarr);
+  mkPruneJob =
+    kind: names:
+    let
+      configuredNamesFile = pkgs.writeText "seerr-${kind}-configured-names.json" (builtins.toJSON names);
+    in
+    {
+      name = "seerr-${kind}-prune";
+      argv = [
+        "/bin/bash"
+        pruneArr
+        "${pkgs.curl}/bin/curl"
+        "${pkgs.jq}/bin/jq"
+        "http://127.0.0.1:${toString cfg.port}"
+        "${stateDir}/settings.json"
+        kind
+        configuredNamesFile
+      ];
+      cwd = stateDir;
+      stdout = "${logDir}/seerr-${kind}-prune.stdout.log";
+      stderr = "${logDir}/seerr-${kind}-prune.stderr.log";
+      env = {
+        HOME = stateDir;
+        PATH = "${
+          lib.makeBinPath [
+            pkgs.coreutils
+            pkgs.curl
+            pkgs.jq
+          ]
+        }:/usr/bin:/bin:/usr/sbin:/sbin";
+      };
+    };
+  pruneJobs =
+    optional (cfg.radarr != { }) (mkPruneJob "radarr" (attrNames cfg.radarr))
+    ++ optional (cfg.sonarr != { }) (mkPruneJob "sonarr" (attrNames cfg.sonarr));
+  serviceSpec = {
+    name = "seerr";
+    argv = [ "${getExe cfg.package}" ];
+    cwd = stateDir;
+    stdout = "${logDir}/stdout.log";
+    stderr = "${logDir}/stderr.log";
+    env = {
+      CONFIG_DIRECTORY = stateDir;
+      HOST = "127.0.0.1";
+      PORT = toString cfg.port;
+    };
+  };
+  plexJob = {
+    name = "seerr-plex-config";
+    argv = [
+      "/bin/bash"
+      configurePlex
+      "${pkgs.curl}/bin/curl"
+      "${pkgs.jq}/bin/jq"
+      "http://127.0.0.1:${toString cfg.port}"
+      "${stateDir}/settings.json"
+      cfg.plex.hostname
+      (toString cfg.plex.port)
+      (boolToString cfg.plex.useSsl)
+      cfg.plex.webAppUrl
+      (boolToString cfg.plex.enableAllLibraries)
+      libraryNamesFile
+    ];
+    cwd = stateDir;
+    stdout = "${logDir}/seerr-plex-config.stdout.log";
+    stderr = "${logDir}/seerr-plex-config.stderr.log";
+    env = {
+      HOME = stateDir;
+      PATH = "${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+        ]
+      }:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+  };
+in
+{
+  imports = [ ../../seerr/options ];
+
+  config = mkIf (config.nixflix.enable && cfg.enable) {
+    assertions = [
+      {
+        assertion = cfg.user != "root" && cfg.group != "wheel";
+        message = "nixflix.seerr must not run as root:wheel on Darwin.";
+      }
+    ];
+
+    nixflix.seerr = {
+      package = mkDefault seerrPackage;
+      user = mkOverride 900 "nixflix";
+      group = mkOverride 900 "staff";
+    };
+
+    system.activationScripts.postActivation.text = mkOrder 2000 "/bin/bash ${
+      escapeShellArgs [
+        activateSeerr
+        stateDir
+        logDir
+        cfg.user
+        cfg.group
+      ]
+    }\n";
+
+    nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
+    nixflix.runtime.darwinSupervisorManifest.jobs =
+      optional cfg.plex.enable plexJob ++ arrJobs ++ pruneJobs;
+  };
+}
