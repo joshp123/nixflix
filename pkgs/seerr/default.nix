@@ -38,6 +38,8 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-j/qMS792IFr0Cn/cFUargHSOTw4vz79kr58XhJVikBQ=";
   };
 
+  patches = [ ./nixflix-request-first.patch ];
+
   buildInputs = [ sqlite ];
 
   nativeBuildInputs = [

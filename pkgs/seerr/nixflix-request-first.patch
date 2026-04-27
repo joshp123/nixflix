@@ -1,0 +1,103 @@
+diff --git a/src/components/Layout/MobileMenu/index.tsx b/src/components/Layout/MobileMenu/index.tsx
+index 9141b75..82148ad 100644
+--- a/src/components/Layout/MobileMenu/index.tsx
++++ b/src/components/Layout/MobileMenu/index.tsx
+@@ -9,9 +9,7 @@ import {
+   EllipsisHorizontalIcon,
+   ExclamationTriangleIcon,
+   EyeSlashIcon,
+-  FilmIcon,
+   SparklesIcon,
+-  TvIcon,
+   UsersIcon,
+ } from '@heroicons/react/24/outline';
+ import {
+@@ -19,9 +17,7 @@ import {
+   CogIcon as FilledCogIcon,
+   ExclamationTriangleIcon as FilledExclamationTriangleIcon,
+   EyeSlashIcon as FilledEyeSlashIcon,
+-  FilmIcon as FilledFilmIcon,
+   SparklesIcon as FilledSparklesIcon,
+-  TvIcon as FilledTvIcon,
+   UsersIcon as FilledUsersIcon,
+   XMarkIcon,
+ } from '@heroicons/react/24/solid';
+@@ -78,20 +74,6 @@ const MobileMenu = ({
+       svgIconSelected: <FilledSparklesIcon className="h-6 w-6" />,
+       activeRegExp: /^\/(discover\/?)?$/,
+     },
+-    {
+-      href: '/discover/movies',
+-      content: intl.formatMessage(menuMessages.browsemovies),
+-      svgIcon: <FilmIcon className="h-6 w-6" />,
+-      svgIconSelected: <FilledFilmIcon className="h-6 w-6" />,
+-      activeRegExp: /^\/discover\/movies$/,
+-    },
+-    {
+-      href: '/discover/tv',
+-      content: intl.formatMessage(menuMessages.browsetv),
+-      svgIcon: <TvIcon className="h-6 w-6" />,
+-      svgIconSelected: <FilledTvIcon className="h-6 w-6" />,
+-      activeRegExp: /^\/discover\/tv$/,
+-    },
+     {
+       href: '/requests',
+       content: intl.formatMessage(menuMessages.requests),
+diff --git a/src/components/Layout/Sidebar/index.tsx b/src/components/Layout/Sidebar/index.tsx
+index 0d3a547..f2cc22e 100644
+--- a/src/components/Layout/Sidebar/index.tsx
++++ b/src/components/Layout/Sidebar/index.tsx
+@@ -9,9 +9,7 @@ import {
+   CogIcon,
+   ExclamationTriangleIcon,
+   EyeSlashIcon,
+-  FilmIcon,
+   SparklesIcon,
+-  TvIcon,
+   UsersIcon,
+   XMarkIcon,
+ } from '@heroicons/react/24/outline';
+@@ -59,18 +57,6 @@ const SidebarLinks: SidebarLinkProps[] = [
+     svgIcon: <SparklesIcon className="mr-3 h-6 w-6" />,
+     activeRegExp: /^\/(discover\/?)?$/,
+   },
+-  {
+-    href: '/discover/movies',
+-    messagesKey: 'browsemovies',
+-    svgIcon: <FilmIcon className="mr-3 h-6 w-6" />,
+-    activeRegExp: /^\/discover\/movies$/,
+-  },
+-  {
+-    href: '/discover/tv',
+-    messagesKey: 'browsetv',
+-    svgIcon: <TvIcon className="mr-3 h-6 w-6" />,
+-    activeRegExp: /^\/discover\/tv$/,
+-  },
+   {
+     href: '/requests',
+     messagesKey: 'requests',
+diff --git a/src/components/RequestButton/index.tsx b/src/components/RequestButton/index.tsx
+index 55b14c6..d331755 100644
+--- a/src/components/RequestButton/index.tsx
++++ b/src/components/RequestButton/index.tsx
+@@ -360,7 +360,19 @@ const RequestButton = ({
+     });
+   }
+ 
+-  const [buttonOne, ...others] = buttons;
++  const requestPriority = (button: ButtonOption) => {
++    if (button.id === 'request4k' || button.id === 'request-more-4k') {
++      return 0;
++    }
++    if (button.id === 'request' || button.id === 'request-more') {
++      return 1;
++    }
++    return 2;
++  };
++  const sortedButtons = [...buttons].sort(
++    (a, b) => requestPriority(a) - requestPriority(b)
++  );
++  const [buttonOne, ...others] = sortedButtons;
+ 
+   if (!buttonOne) {
+     return null;
