@@ -277,9 +277,13 @@ in
           nixflix = {
             enable = true;
             nginx.enable = false;
-            seerr = {
-              enable = true;
-              plex = {
+              seerr = {
+                enable = true;
+                settings = {
+                  discover.enableBuiltInSliders = false;
+                  users.defaultPermissions = 7168;
+                };
+                plex = {
                 enable = true;
                 hostname = "192.168.1.163";
               };
@@ -321,6 +325,8 @@ in
       job = findCommand "seerr-plex-config" manifest.jobs;
       radarrJob = findCommand "seerr-radarr-config-Radarr" manifest.jobs;
       sonarrJob = findCommand "seerr-sonarr-config-Sonarr" manifest.jobs;
+      usersJob = findCommand "seerr-users-config" manifest.jobs;
+      discoverJob = findCommand "seerr-discover-config" manifest.jobs;
       radarrPruneJob = findCommand "seerr-radarr-prune" manifest.jobs;
       sonarrPruneJob = findCommand "seerr-sonarr-prune" manifest.jobs;
       activation = evaluated.config.system.activationScripts.postActivation.text;
@@ -330,6 +336,8 @@ in
       && hasCommand "seerr-plex-config" manifest.jobs
       && hasCommand "seerr-radarr-config-Radarr" manifest.jobs
       && hasCommand "seerr-sonarr-config-Sonarr" manifest.jobs
+      && hasCommand "seerr-users-config" manifest.jobs
+      && hasCommand "seerr-discover-config" manifest.jobs
       && hasCommand "seerr-radarr-prune" manifest.jobs
       && hasCommand "seerr-sonarr-prune" manifest.jobs
       && builtins.length service.argv == 1
@@ -342,6 +350,10 @@ in
       && builtins.any (
         arg: lib.hasInfix "seerr-sonarr-configured-names.json" (toString arg)
       ) sonarrPruneJob.argv
+      && builtins.any (
+        arg: lib.hasInfix "seerr-user-settings.json" (toString arg)
+      ) usersJob.argv
+      && builtins.elem "false" discoverJob.argv
       && service.cwd == toString evaluated.config.nixflix.seerr.dataDir
       && service.env.CONFIG_DIRECTORY == toString evaluated.config.nixflix.seerr.dataDir
       && service.env.HOST == "127.0.0.1"

@@ -21,6 +21,14 @@ let
     path = ./scripts/configure-seerr-arr.sh;
     name = "configure-seerr-arr.sh";
   };
+  configureDiscover = builtins.path {
+    path = ./scripts/configure-seerr-discover.sh;
+    name = "configure-seerr-discover.sh";
+  };
+  configureUsers = builtins.path {
+    path = ./scripts/configure-seerr-users.sh;
+    name = "configure-seerr-users.sh";
+  };
   pruneArr = builtins.path {
     path = ./scripts/prune-seerr-arr.sh;
     name = "prune-seerr-arr.sh";
@@ -29,6 +37,9 @@ let
   secrets = import ../../../lib/secrets { inherit lib; };
   libraryNamesFile = pkgs.writeText "seerr-plex-library-names.json" (
     builtins.toJSON cfg.plex.libraryNames
+  );
+  userSettingsFile = pkgs.writeText "seerr-user-settings.json" (
+    builtins.toJSON cfg.settings.users
   );
   secretArgs =
     value:
@@ -186,6 +197,56 @@ let
       }:/usr/bin:/bin:/usr/sbin:/sbin";
     };
   };
+  discoverJob = {
+    name = "seerr-discover-config";
+    argv = [
+      "/bin/bash"
+      configureDiscover
+      "${pkgs.curl}/bin/curl"
+      "${pkgs.jq}/bin/jq"
+      "http://127.0.0.1:${toString cfg.port}"
+      "${stateDir}/settings.json"
+      (boolToString cfg.settings.discover.enableBuiltInSliders)
+    ];
+    cwd = stateDir;
+    stdout = "${logDir}/seerr-discover-config.stdout.log";
+    stderr = "${logDir}/seerr-discover-config.stderr.log";
+    env = {
+      HOME = stateDir;
+      PATH = "${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+        ]
+      }:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+  };
+  usersJob = {
+    name = "seerr-users-config";
+    argv = [
+      "/bin/bash"
+      configureUsers
+      "${pkgs.curl}/bin/curl"
+      "${pkgs.jq}/bin/jq"
+      "http://127.0.0.1:${toString cfg.port}"
+      "${stateDir}/settings.json"
+      userSettingsFile
+    ];
+    cwd = stateDir;
+    stdout = "${logDir}/seerr-users-config.stdout.log";
+    stderr = "${logDir}/seerr-users-config.stderr.log";
+    env = {
+      HOME = stateDir;
+      PATH = "${
+        lib.makeBinPath [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+        ]
+      }:/usr/bin:/bin:/usr/sbin:/sbin";
+    };
+  };
 in
 {
   imports = [ ../../seerr/options ];
@@ -216,6 +277,6 @@ in
 
     nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
     nixflix.runtime.darwinSupervisorManifest.jobs =
-      optional cfg.plex.enable plexJob ++ arrJobs ++ pruneJobs;
+      optional cfg.plex.enable plexJob ++ [ usersJob discoverJob ] ++ arrJobs ++ pruneJobs;
   };
 }

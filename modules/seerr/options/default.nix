@@ -11,6 +11,7 @@ in
 {
   imports = [
     ./jellyfin.nix
+    ./discover.nix
     ./plex.nix
     ./radarr.nix
     ./sonarr.nix
