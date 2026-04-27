@@ -41,6 +41,23 @@ let
   userSettingsFile = pkgs.writeText "seerr-user-settings.json" (
     builtins.toJSON cfg.settings.users
   );
+  discoverSliderTypeIds = {
+    RECENTLY_ADDED = 1;
+    RECENT_REQUESTS = 2;
+    PLEX_WATCHLIST = 3;
+    TRENDING = 4;
+    POPULAR_MOVIES = 5;
+    MOVIE_GENRES = 6;
+    UPCOMING_MOVIES = 7;
+    STUDIOS = 8;
+    POPULAR_TV = 9;
+    TV_GENRES = 10;
+    UPCOMING_TV = 11;
+    NETWORKS = 12;
+  };
+  discoverEnabledTypesFile = pkgs.writeText "seerr-discover-enabled-types.json" (
+    builtins.toJSON (map (type: discoverSliderTypeIds.${type}) cfg.settings.discover.enabledBuiltInSliderTypes)
+  );
   secretArgs =
     value:
     if secrets.isSecretRef value then
@@ -206,7 +223,7 @@ let
       "${pkgs.jq}/bin/jq"
       "http://127.0.0.1:${toString cfg.port}"
       "${stateDir}/settings.json"
-      (boolToString cfg.settings.discover.enableBuiltInSliders)
+      discoverEnabledTypesFile
     ];
     cwd = stateDir;
     stdout = "${logDir}/seerr-discover-config.stdout.log";
@@ -277,6 +294,10 @@ in
 
     nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
     nixflix.runtime.darwinSupervisorManifest.jobs =
-      optional cfg.plex.enable plexJob ++ [ usersJob discoverJob ] ++ arrJobs ++ pruneJobs;
+      optional cfg.plex.enable plexJob
+      ++ [ usersJob ]
+      ++ optional (cfg.settings.discover.enabledBuiltInSliderTypes != null) discoverJob
+      ++ arrJobs
+      ++ pruneJobs;
   };
 }

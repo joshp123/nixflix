@@ -280,7 +280,7 @@ in
               seerr = {
                 enable = true;
                 settings = {
-                  discover.enableBuiltInSliders = false;
+                  discover.enabledBuiltInSliderTypes = [ "RECENTLY_ADDED" ];
                   users.defaultPermissions = 7168;
                 };
                 plex = {
@@ -353,7 +353,9 @@ in
       && builtins.any (
         arg: lib.hasInfix "seerr-user-settings.json" (toString arg)
       ) usersJob.argv
-      && builtins.elem "false" discoverJob.argv
+      && builtins.any (
+        arg: lib.hasInfix "seerr-discover-enabled-types.json" (toString arg)
+      ) discoverJob.argv
       && service.cwd == toString evaluated.config.nixflix.seerr.dataDir
       && service.env.CONFIG_DIRECTORY == toString evaluated.config.nixflix.seerr.dataDir
       && service.env.HOST == "127.0.0.1"

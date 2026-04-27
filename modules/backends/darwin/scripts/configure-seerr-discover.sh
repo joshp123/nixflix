@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-curl_bin="${1:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLE_BUILT_IN_SLIDERS}"
-jq_bin="${2:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLE_BUILT_IN_SLIDERS}"
-base_url="${3:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLE_BUILT_IN_SLIDERS}"
-settings_json="${4:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLE_BUILT_IN_SLIDERS}"
-enable_built_in_sliders="${5:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLE_BUILT_IN_SLIDERS}"
+curl_bin="${1:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLED_TYPES_JSON}"
+jq_bin="${2:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLED_TYPES_JSON}"
+base_url="${3:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLED_TYPES_JSON}"
+settings_json="${4:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLED_TYPES_JSON}"
+enabled_types_json="${5:?usage: configure-seerr-discover.sh CURL JQ BASE_URL SETTINGS_JSON ENABLED_TYPES_JSON}"
 
 for _attempt in $(seq 1 60); do
   if "$curl_bin" --retry 0 --connect-timeout 2 --max-time 5 -fsS -o /dev/null "$base_url/api/v1/status"; then
@@ -29,8 +29,8 @@ sliders="$("$curl_bin" -fsS \
   -H "X-Api-Key: $api_key" \
   "$base_url/api/v1/settings/discover")"
 
-payload="$(echo "$sliders" | "$jq_bin" --arg enabled "$enable_built_in_sliders" '
-  map(.enabled = ($enabled == "true"))
+payload="$(echo "$sliders" | "$jq_bin" --slurpfile enabledTypes "$enabled_types_json" '
+  map(.enabled = (.type as $type | $enabledTypes[0] | index($type) != null))
 ')"
 
 response="$("$curl_bin" -sS -X POST \
@@ -48,4 +48,4 @@ if [ "$http_code" != "200" ] && [ "$http_code" != "201" ] && [ "$http_code" != "
   exit 1
 fi
 
-echo "Seerr discover sliders configured: enableBuiltInSliders=$enable_built_in_sliders"
+echo "Seerr discover sliders configured"
