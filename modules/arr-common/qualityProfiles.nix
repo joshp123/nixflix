@@ -18,6 +18,7 @@ in
       List of quality profiles to create or update via the API /qualityprofile endpoint.
       Profiles are matched by name. Existing profiles not listed here are left alone.
       Set `sourceName` to clone an existing profile from the service and override only selected fields.
+      Use `allowedQualities` and `disallowedQualities` to converge individual quality gates by name.
     '';
   };
 

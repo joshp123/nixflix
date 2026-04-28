@@ -47,26 +47,37 @@ jq -c '.[]' "$profiles_json" | while IFS= read -r configured_profile; do
     )"
   fi
 
+  allowed_qualities="$(printf '%s\n' "$configured_profile" | jq -c '.allowedQualities // []')"
   disallowed_qualities="$(printf '%s\n' "$configured_profile" | jq -c '.disallowedQualities // []')"
-  if [ "$disallowed_qualities" != "[]" ]; then
+  if [ "$allowed_qualities" != "[]" ] || [ "$disallowed_qualities" != "[]" ]; then
     configured_profile="$(
       printf '%s\n' "$configured_profile" | jq -c \
+        --argjson allowed "$allowed_qualities" \
         --argjson disallowed "$disallowed_qualities" \
         '
           def rewrite:
             if type == "object" then
-              (if (.quality.name? as $name | $name != null and ($disallowed | index($name))) then
-                .allowed = false
-              else
-                .
-              end)
+              (
+                if ((.quality.name? // .name?) as $name | $name != null and ($allowed | index($name))) then
+                  .allowed = true
+                else
+                  .
+                end
+              )
+              | (
+                if ((.quality.name? // .name?) as $name | $name != null and ($disallowed | index($name))) then
+                  .allowed = false
+                else
+                  .
+                end
+              )
               | with_entries(.value |= rewrite)
             elif type == "array" then
               map(rewrite)
             else
               .
             end;
-          rewrite | del(.disallowedQualities)
+          rewrite | del(.allowedQualities, .disallowedQualities)
         '
     )"
   fi
