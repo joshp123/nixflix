@@ -38,9 +38,8 @@ let
   libraryNamesFile = pkgs.writeText "seerr-plex-library-names.json" (
     builtins.toJSON cfg.plex.libraryNames
   );
-  userSettingsFile = pkgs.writeText "seerr-user-settings.json" (
-    builtins.toJSON cfg.settings.users
-  );
+  userSettingsFile = pkgs.writeText "seerr-user-settings.json" (builtins.toJSON cfg.settings.users);
+  managedUsersFile = pkgs.writeText "seerr-managed-users.json" (builtins.toJSON cfg.managedUsers);
   discoverSliderTypeIds = {
     RECENTLY_ADDED = 1;
     RECENT_REQUESTS = 2;
@@ -56,7 +55,9 @@ let
     NETWORKS = 12;
   };
   discoverEnabledTypesFile = pkgs.writeText "seerr-discover-enabled-types.json" (
-    builtins.toJSON (map (type: discoverSliderTypeIds.${type}) cfg.settings.discover.enabledBuiltInSliderTypes)
+    builtins.toJSON (
+      map (type: discoverSliderTypeIds.${type}) cfg.settings.discover.enabledBuiltInSliderTypes
+    )
   );
   secretArgs =
     value:
@@ -249,6 +250,7 @@ let
       "http://127.0.0.1:${toString cfg.port}"
       "${stateDir}/settings.json"
       userSettingsFile
+      managedUsersFile
     ];
     cwd = stateDir;
     stdout = "${logDir}/seerr-users-config.stdout.log";
@@ -267,6 +269,33 @@ let
 in
 {
   imports = [ ../../seerr/options ];
+
+  options.nixflix.seerr.managedUsers = mkOption {
+    type = types.attrsOf (
+      types.submodule (
+        { name, ... }:
+        {
+          options = {
+            email = mkOption {
+              type = types.str;
+              default = name;
+              description = "Seerr user email address to manage.";
+            };
+
+            permissions = mkOption {
+              type = types.int;
+              description = "Exact Seerr permission bitmask to enforce for this user.";
+            };
+          };
+        }
+      )
+    );
+    default = { };
+    description = "Existing Seerr users whose permissions should be reconciled by the Darwin backend.";
+    example = {
+      "user@example.com".permissions = 8224;
+    };
+  };
 
   config = mkIf (config.nixflix.enable && cfg.enable) {
     assertions = [

@@ -277,13 +277,13 @@ in
           nixflix = {
             enable = true;
             nginx.enable = false;
-              seerr = {
-                enable = true;
-                settings = {
-                  discover.enabledBuiltInSliderTypes = [ "RECENTLY_ADDED" ];
-                  users.defaultPermissions = 7168;
-                };
-                plex = {
+            seerr = {
+              enable = true;
+              settings = {
+                discover.enabledBuiltInSliderTypes = [ "RECENTLY_ADDED" ];
+                users.defaultPermissions = 7168;
+              };
+              plex = {
                 enable = true;
                 hostname = "192.168.1.163";
               };
@@ -350,9 +350,8 @@ in
       && builtins.any (
         arg: lib.hasInfix "seerr-sonarr-configured-names.json" (toString arg)
       ) sonarrPruneJob.argv
-      && builtins.any (
-        arg: lib.hasInfix "seerr-user-settings.json" (toString arg)
-      ) usersJob.argv
+      && builtins.any (arg: lib.hasInfix "seerr-user-settings.json" (toString arg)) usersJob.argv
+      && builtins.any (arg: lib.hasInfix "seerr-managed-users.json" (toString arg)) usersJob.argv
       && builtins.any (
         arg: lib.hasInfix "seerr-discover-enabled-types.json" (toString arg)
       ) discoverJob.argv
