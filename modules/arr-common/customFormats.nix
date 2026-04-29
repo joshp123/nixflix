@@ -28,7 +28,9 @@ in
       formatsFile = pkgs.writeText "${serviceName}-custom-formats.json" (
         builtins.toJSON serviceConfig.customFormats
       );
-      qualityProfileDeps = optional (serviceConfig.qualityProfiles != [ ]) "${serviceName}-qualityprofiles.service";
+      qualityProfileDeps = optional (
+        serviceConfig.qualityProfiles != [ ]
+      ) "${serviceName}-qualityprofiles.service";
     in
     {
       description = "Configure ${serviceName} custom formats via API";

@@ -22,7 +22,7 @@ let
     builtins.toJSON {
       general = {
         ip = cfg.config.bindAddress;
-        port = cfg.config.port;
+        inherit (cfg.config) port;
         base_url = cfg.config.urlBase;
         use_sonarr = true;
         use_radarr = true;
@@ -122,8 +122,7 @@ in
       group = mkOverride 900 "staff";
     };
 
-    system.activationScripts.postActivation.text = mkOrder 2000 (
-      "/bin/bash ${
+    system.activationScripts.postActivation.text = mkOrder 2000 "/bin/bash ${
         escapeShellArgs (
           [
             activateBazarr
@@ -139,8 +138,7 @@ in
           ++ secretArgs cfg.config.opensubtitlescom.username
           ++ secretArgs cfg.config.opensubtitlescom.password
         )
-      }\n"
-    );
+      }\n";
 
     nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
   };
