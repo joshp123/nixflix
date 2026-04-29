@@ -123,22 +123,22 @@ in
     };
 
     system.activationScripts.postActivation.text = mkOrder 2000 "/bin/bash ${
-        escapeShellArgs (
-          [
-            activateBazarr
-            stateDir
-            logDir
-            cfg.user
-            cfg.group
-            writeConfig
-            configTemplate
-          ]
-          ++ secretArgs cfg.config.sonarrApiKey
-          ++ secretArgs cfg.config.radarrApiKey
-          ++ secretArgs cfg.config.opensubtitlescom.username
-          ++ secretArgs cfg.config.opensubtitlescom.password
-        )
-      }\n";
+      escapeShellArgs (
+        [
+          activateBazarr
+          stateDir
+          logDir
+          cfg.user
+          cfg.group
+          writeConfig
+          configTemplate
+        ]
+        ++ secretArgs cfg.config.sonarrApiKey
+        ++ secretArgs cfg.config.radarrApiKey
+        ++ secretArgs cfg.config.opensubtitlescom.username
+        ++ secretArgs cfg.config.opensubtitlescom.password
+      )
+    }\n";
 
     nixflix.runtime.darwinSupervisorManifest.services = [ serviceSpec ];
   };
