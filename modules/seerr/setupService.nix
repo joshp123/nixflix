@@ -23,7 +23,7 @@ let
   };
 in
 {
-  config = mkIf (nixflix.enable && cfg.enable) {
+  config = mkIf (nixflix.enable && cfg.enable && !cfg.plex.enable) {
     systemd.services.seerr-setup = {
       description = "Complete Seerr initial setup with Jellyfin";
       after = [

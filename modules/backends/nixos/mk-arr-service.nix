@@ -31,6 +31,12 @@ let
   usesMediaDirs = !(elem serviceName [ "prowlarr" ]);
   hostname = "${cfg.subdomain}.${config.nixflix.nginx.domain}";
   serviceBase = builtins.elemAt (splitString "-" serviceName) 0;
+  mountGated = config.nixflix.serviceDependencies != [ ];
+  # Mounted media directories may reject client-side ownership/mode changes.
+  mkMediaDir = path: "${pkgs.coreutils}/bin/mkdir -p ${escapeShellArg path}";
+  mediaDirSetupScript = pkgs.writeShellScript "${serviceName}-media-dirs" (
+    concatMapStringsSep "\n" mkMediaDir cfg.mediaDirs
+  );
 in
 {
   config = mkIf (config.nixflix.enable && cfg.enable) {
@@ -111,7 +117,7 @@ in
         mode = "0755";
       };
     }
-    // optionalAttrs usesMediaDirs (
+    // optionalAttrs (usesMediaDirs && !mountGated) (
       lib.mergeAttrsList (
         map (mediaDir: {
           "${mediaDir}".d = {
@@ -208,8 +214,13 @@ in
           Type = "simple";
           User = cfg.user;
           Group = cfg.group;
+          ExecStartPre = mkIf (usesMediaDirs && mountGated && cfg.mediaDirs != [ ]) (
+            "+" + mediaDirSetupScript
+          );
           ExecStart = "${getExe cfg.package} -nobrowser -data='${stateDir}'";
-          ExecStartPost = "+" + (mkWaitForApiScript serviceName cfg.config);
+          ExecStartPost = mkIf (cfg.config.apiKey != null) (
+            "+" + (mkWaitForApiScript serviceName cfg.config)
+          );
           Restart = "on-failure";
         }
         // optionalAttrs (cfg.config.apiKey != null && cfg.config.hostConfig.password != null) {

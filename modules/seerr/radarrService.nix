@@ -17,6 +17,13 @@ let
       ;
   };
   baseUrl = "http://127.0.0.1:${toString cfg.port}";
+  seerrReadyServices =
+    if cfg.plex.enable then
+      [ "seerr-user-settings.service" ]
+      ++ optional (cfg.settings.discover.enabledBuiltInSliderTypes != null) "seerr-discover.service"
+    else
+      [ "seerr-libraries.service" ]
+      ++ optional (cfg.settings.discover.enabledBuiltInSliderTypes != null) "seerr-discover.service";
 
   sanitizeName = name: builtins.replaceStrings [ " " "-" ] [ "_" "_" ] name;
 
@@ -177,8 +184,8 @@ in
   config = mkIf (nixflix.enable && cfg.enable && cfg.radarr != { }) {
     systemd.services.seerr-radarr = {
       description = "Configure Seerr Radarr integration";
-      after = [ "seerr-libraries.service" ] ++ optional nixflix.radarr.enable "radarr-config.service";
-      requires = [ "seerr-libraries.service" ] ++ optional nixflix.radarr.enable "radarr-config.service";
+      after = seerrReadyServices ++ optional nixflix.radarr.enable "radarr-config.service";
+      requires = seerrReadyServices ++ optional nixflix.radarr.enable "radarr-config.service";
       wantedBy = [ "multi-user.target" ];
 
       serviceConfig = {

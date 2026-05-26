@@ -12,6 +12,18 @@ let
   categoriesJson = builtins.toJSON (lib.mapAttrs (_name: path: { save_path = path; }) cfg.categories);
   categoriesFile = pkgs.writeText "categories.json" categoriesJson;
   configPath = "${service.profileDir}/qBittorrent/config";
+  mountGated = config.nixflix.serviceDependencies != [ ];
+  sessionConfig = cfg.serverConfig.BitTorrent.Session;
+  tempPath = sessionConfig.TempPath or null;
+  tempPathEnabled = sessionConfig.TempPathEnabled or false;
+  downloadDirs = [
+    cfg.downloadsDir
+    sessionConfig.DefaultSavePath
+  ]
+  ++ optional (tempPathEnabled && tempPath != null && tempPath != "") tempPath
+  ++ attrValues (lib.filterAttrs (_name: path: path != "") cfg.categories);
+  # Mounted download directories rely on the NAS ACL for ownership and mode.
+  mkDownloadDir = path: "${pkgs.coreutils}/bin/mkdir -p ${escapeShellArg path}";
 in
 {
   config = mkIf (config.nixflix.enable && cfg.enable) {
@@ -31,7 +43,9 @@ in
         uid = config.nixflix.globals.uids.qbittorrent;
       };
 
-      groups.${service.group} = mkForce { };
+      groups.${service.group} = optionalAttrs (config.nixflix.globals.gids ? ${service.group}) {
+        gid = config.nixflix.globals.gids.${service.group};
+      };
     };
 
     systemd.tmpfiles.settings."10-qbittorrent" = {
@@ -43,35 +57,32 @@ in
         inherit (service) user group;
         mode = "0754";
       };
-      ${cfg.downloadsDir}.d = {
-        inherit (service) user group;
-        mode = "0775";
-      };
-      ${cfg.serverConfig.BitTorrent.Session.DefaultSavePath}.d = {
-        inherit (service) user group;
-        mode = "0775";
-      };
     }
-    // lib.mapAttrs' (
-      _name: path:
-      lib.nameValuePair path {
-        d = {
-          inherit (service) user group;
-          mode = "0775";
-        };
-      }
-    ) (lib.filterAttrs (_name: path: path != "") cfg.categories);
+    // optionalAttrs (!mountGated) (
+      listToAttrs (
+        map (path: {
+          name = path;
+          value.d = {
+            inherit (service) user group;
+            mode = "0775";
+          };
+        }) downloadDirs
+      )
+    );
 
     systemd.services.qbittorrent = {
-      after = [ "nixflix-setup-dirs.service" ];
-      requires = [ "nixflix-setup-dirs.service" ];
-      preStart = lib.mkIf (cfg.categories != { }) (
-        lib.mkAfter ''
-          cp -f '${categoriesFile}' '${configPath}/categories.json'
-          chmod 640 '${configPath}/categories.json'
-          chown ${service.user}:${service.group} '${configPath}/categories.json'
-        ''
-      );
+      after = [ "nixflix-setup-dirs.service" ] ++ config.nixflix.serviceDependencies;
+      requires = [ "nixflix-setup-dirs.service" ] ++ config.nixflix.serviceDependencies;
+      preStart = lib.mkAfter ''
+        ${optionalString mountGated (concatMapStringsSep "\n" mkDownloadDir downloadDirs)}
+        ${optionalString (cfg.categories != { }) ''
+          if [ ! -e '${configPath}/categories.json' ]; then
+            ${pkgs.coreutils}/bin/cp '${categoriesFile}' '${configPath}/categories.json'
+          fi
+          ${pkgs.coreutils}/bin/chmod 640 '${configPath}/categories.json'
+          ${pkgs.coreutils}/bin/chown ${service.user}:${service.group} '${configPath}/categories.json'
+        ''}
+      '';
     };
 
     networking.hosts = mkIf (config.nixflix.nginx.enable && config.nixflix.nginx.addHostsEntries) {

@@ -17,6 +17,15 @@ let
       ;
   };
   baseUrl = "http://127.0.0.1:${toString cfg.port}";
+  seerrReadyServices =
+    if cfg.radarr != { } then
+      [ "seerr-radarr.service" ]
+    else if cfg.plex.enable then
+      [ "seerr-user-settings.service" ]
+      ++ optional (cfg.settings.discover.enabledBuiltInSliderTypes != null) "seerr-discover.service"
+    else
+      [ "seerr-libraries.service" ]
+      ++ optional (cfg.settings.discover.enabledBuiltInSliderTypes != null) "seerr-discover.service";
 
   sanitizeName = name: builtins.replaceStrings [ " " "-" ] [ "_" "_" ] name;
 
@@ -208,19 +217,15 @@ in
   config = mkIf (nixflix.enable && cfg.enable && cfg.sonarr != { }) {
     systemd.services.seerr-sonarr = {
       description = "Configure Seerr Sonarr integration";
-      after = [
-        "seerr-radarr.service"
-      ]
-      ++ optional (cfg.radarr != { }) "seerr-radarr.service"
-      ++ optional nixflix.sonarr.enable "sonarr-config.service"
-      ++ optional (nixflix.sonarr-anime.enable or false) "sonarr-anime-config.service";
+      after =
+        seerrReadyServices
+        ++ optional nixflix.sonarr.enable "sonarr-config.service"
+        ++ optional (nixflix.sonarr-anime.enable or false) "sonarr-anime-config.service";
 
-      requires = [
-        "seerr-radarr.service"
-      ]
-      ++ optional (cfg.radarr != { }) "seerr-radarr.service"
-      ++ optional nixflix.sonarr.enable "sonarr-config.service"
-      ++ optional (nixflix.sonarr-anime.enable or false) "sonarr-anime-config.service";
+      requires =
+        seerrReadyServices
+        ++ optional nixflix.sonarr.enable "sonarr-config.service"
+        ++ optional (nixflix.sonarr-anime.enable or false) "sonarr-anime-config.service";
 
       wantedBy = [ "multi-user.target" ];
 

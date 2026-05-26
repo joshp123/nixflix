@@ -270,33 +270,6 @@ in
 {
   imports = [ ../../seerr/options ];
 
-  options.nixflix.seerr.managedUsers = mkOption {
-    type = types.attrsOf (
-      types.submodule (
-        { name, ... }:
-        {
-          options = {
-            email = mkOption {
-              type = types.str;
-              default = name;
-              description = "Seerr user email address to manage.";
-            };
-
-            permissions = mkOption {
-              type = types.int;
-              description = "Exact Seerr permission bitmask to enforce for this user.";
-            };
-          };
-        }
-      )
-    );
-    default = { };
-    description = "Existing Seerr users whose permissions should be reconciled by the Darwin backend.";
-    example = {
-      "user@example.com".permissions = 8224;
-    };
-  };
-
   config = mkIf (config.nixflix.enable && cfg.enable) {
     assertions = [
       {

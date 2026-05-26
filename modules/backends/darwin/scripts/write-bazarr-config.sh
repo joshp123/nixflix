@@ -6,8 +6,9 @@ template_file="$2"
 config_dir="$state_dir/config"
 config_file="$config_dir/config.yaml"
 jq_bin="@jq@"
+mkdir_bin="@mkdir@"
 
-mkdir -p "$config_dir"
+"$mkdir_bin" -p "$config_dir"
 
 if [ "${BAZARR_REQUIRE_OPENSUBTITLES:-0}" = "1" ] &&
   { [ -z "${BAZARR_OPENSUBTITLES_USERNAME:-}" ] || [ -z "${BAZARR_OPENSUBTITLES_PASSWORD:-}" ]; }; then

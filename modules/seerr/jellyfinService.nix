@@ -18,7 +18,7 @@ let
   baseUrl = "http://127.0.0.1:${toString cfg.port}";
 in
 {
-  config = mkIf (nixflix.enable && cfg.enable) {
+  config = mkIf (nixflix.enable && cfg.enable && !cfg.plex.enable) {
     systemd.services.seerr-jellyfin = {
       description = "Configure Jellyfin settings in Seerr";
       after = [ "seerr-user-settings.service" ];

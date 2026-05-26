@@ -16,6 +16,7 @@ let
   };
   writeConfig = pkgs.replaceVars ./scripts/write-bazarr-config.sh {
     jq = "${pkgs.jq}/bin/jq";
+    mkdir = "${pkgs.coreutils}/bin/mkdir";
   };
   hasOpenSubtitles = cfg.config.opensubtitlescom.username != null;
   configTemplate = pkgs.writeText "bazarr-config-template.json" (

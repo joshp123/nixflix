@@ -70,7 +70,10 @@ in
       };
 
   config.systemd.services."prowlarr-indexer-proxies" =
-    mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null)
+    mkIf
+      (
+        config.nixflix.enable && cfg.enable && cfg.config.apiKey != null && cfg.config.indexerProxies != [ ]
+      )
       (mkNixosOneshotService {
         description = "Configure Prowlarr indexer proxies via API";
         after = [

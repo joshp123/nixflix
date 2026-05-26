@@ -15,7 +15,9 @@ in
     ./jellyfinService.nix
     ./librarySyncService.nix
     ./options
+    ./plexSetupService.nix
     ./radarrService.nix
+    ./discoverService.nix
     ./setupService.nix
     ./sonarrService.nix
     ./userSettingsService.nix
@@ -36,8 +38,9 @@ in
       in
       [
         {
-          assertion = cfg.jellyfin.adminUsername != null && cfg.jellyfin.adminPassword != null;
-          message = "Seerr requires Jellyfin admin credentials. Either enable nixflix.jellyfin with an admin user, or set nixflix.seerr.jellyfin.adminUsername and nixflix.seerr.jellyfin.adminPassword.";
+          assertion =
+            cfg.plex.enable || (cfg.jellyfin.adminUsername != null && cfg.jellyfin.adminPassword != null);
+          message = "Seerr requires either Plex mode or Jellyfin admin credentials. Set nixflix.seerr.plex.enable = true, enable nixflix.jellyfin with an admin user, or set nixflix.seerr.jellyfin.adminUsername and nixflix.seerr.jellyfin.adminPassword.";
         }
         {
           assertion = cfg.vpn.enable -> config.nixflix.mullvad.enable;
@@ -152,6 +155,7 @@ in
           "network-online.target"
           "nixflix-setup-dirs.service"
         ]
+        ++ config.nixflix.serviceDependencies
         ++ optional (cfg.apiKey != null) "seerr-env.service"
         ++ optional config.nixflix.mullvad.enable "mullvad-config.service"
         ++ optional config.nixflix.jellyfin.enable "jellyfin-setup-wizard.service"
@@ -170,6 +174,7 @@ in
         requires = [
           "nixflix-setup-dirs.service"
         ]
+        ++ config.nixflix.serviceDependencies
         ++ optional config.nixflix.jellyfin.enable "jellyfin-setup-wizard.service"
         ++ optional (cfg.apiKey != null) "seerr-env.service"
         ++ optional config.nixflix.postgres.enable "postgresql-ready.target"

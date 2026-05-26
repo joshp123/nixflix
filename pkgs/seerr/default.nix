@@ -51,8 +51,8 @@ stdenv.mkDerivation (finalAttrs: {
     pnpmConfigHook
     python3
     python3Packages.distutils
-    xcbuild
-  ];
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [ xcbuild ];
 
   env = {
     npm_config_build_from_source = "true";

@@ -14,6 +14,6 @@ in
   imports = [ ./indexersOptions.nix ];
 
   config.systemd.services."prowlarr-indexers" = mkIf (
-    config.nixflix.enable && cfg.enable && cfg.config.apiKey != null
+    config.nixflix.enable && cfg.enable && cfg.config.apiKey != null && cfg.config.indexers != [ ]
   ) (mkNixosOneshotService indexersJob.mkJob);
 }

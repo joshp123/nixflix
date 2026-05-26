@@ -160,6 +160,7 @@ in
           };
 
           apiKey = secrets.mkSecretOption {
+            nullable = true;
             default = null;
             description = "API key for ${capitalizedName}.";
           };

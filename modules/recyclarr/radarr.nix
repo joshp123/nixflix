@@ -5,12 +5,13 @@ in
 {
   assertions = [
     {
-      assertion = config.nixflix.radarr.enable -> config.nixflix.radarr.config.apiKey != null;
+      assertion =
+        cfg.enable && config.nixflix.radarr.enable -> config.nixflix.radarr.config.apiKey != null;
       message = "Recyclarr Radarr sync requires nixflix.radarr.config.apiKey to be set";
     }
   ];
 
-  nixflix.recyclarr.config.radarr.radarr = lib.mkIf config.nixflix.radarr.enable {
+  nixflix.recyclarr.config.radarr.radarr = lib.mkIf (cfg.enable && config.nixflix.radarr.enable) {
     base_url = lib.mkDefault "http://127.0.0.1:${toString config.nixflix.radarr.config.hostConfig.port}${toString config.nixflix.radarr.config.hostConfig.urlBase}";
     api_key = lib.mkDefault config.nixflix.radarr.config.apiKey;
     delete_old_custom_formats = lib.mkDefault true;

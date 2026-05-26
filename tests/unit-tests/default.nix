@@ -187,11 +187,99 @@ in
       ];
       systemdUnits = config.config.systemd.services;
       hasAllServices =
-        systemdUnits ? prowlarr && systemdUnits ? prowlarr-config && systemdUnits ? prowlarr-indexers;
+        systemdUnits ? prowlarr
+        && systemdUnits ? prowlarr-config
+        && systemdUnits ? prowlarr-indexers
+        && !(systemdUnits ? prowlarr-tags);
     in
     assertTest "prowlarr-service-generation" hasAllServices;
 
-  # Test that prowlarr with indexers generates correct systemd units
+  prowlarr-empty-indexers-preserved =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            prowlarr = {
+              enable = true;
+              config = {
+                hostConfig = {
+                  port = 9696;
+                  username = "admin";
+                  password._secret = "/run/secrets/prowlarr-pass";
+                };
+                apiKey._secret = "/run/secrets/prowlarr-api";
+                indexers = [ ];
+              };
+            };
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+    in
+    assertTest "prowlarr-empty-indexers-preserved" (
+      !(systemdUnits ? prowlarr-indexers) && !(systemdUnits ? prowlarr-tags)
+    );
+
+  prowlarr-empty-indexer-proxies-preserved =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            prowlarr = {
+              enable = true;
+              config = {
+                hostConfig = {
+                  port = 9696;
+                  username = "admin";
+                  password._secret = "/run/secrets/prowlarr-pass";
+                };
+                apiKey._secret = "/run/secrets/prowlarr-api";
+                indexerProxies = [ ];
+              };
+            };
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+    in
+    assertTest "prowlarr-empty-indexer-proxies-preserved" (
+      !(systemdUnits ? prowlarr-indexer-proxies) && !(systemdUnits ? prowlarr-tags)
+    );
+
+  prowlarr-tags-service-generation =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            prowlarr = {
+              enable = true;
+              config = {
+                hostConfig = {
+                  port = 9696;
+                  username = "admin";
+                  password._secret = "/run/secrets/prowlarr-pass";
+                };
+                apiKey._secret = "/run/secrets/prowlarr-api";
+                indexers = [
+                  {
+                    name = "1337x";
+                    apiKey._secret = "/run/secrets/1337x-api";
+                    tags = [ "flaresolverr" ];
+                  }
+                ];
+              };
+            };
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+    in
+    assertTest "prowlarr-tags-service-generation" (systemdUnits ? prowlarr-tags);
+
+  # Test that SABnzbd generates correct systemd units
   sabnzbd-service-generation =
     let
       config = evalConfig [
@@ -276,6 +364,225 @@ in
       && systemdUnits ? seerr-jellyfin
       && systemdUnits ? seerr-libraries
       && systemdUnits ? seerr-user-settings
+    );
+
+  seerr-plex-generation =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            seerr = {
+              enable = true;
+              plex = {
+                enable = true;
+                hostname = "192.168.1.163";
+                port = 32400;
+              };
+              settings.discover.enabledBuiltInSliderTypes = [ "RECENTLY_ADDED" ];
+              managedUsers."user@example.com".permissions = 8224;
+              radarr."Radarr Best" = {
+                apiKey = "radarr-api-key";
+                activeDirectory = "/media/movies";
+              };
+              sonarr."Sonarr Best" = {
+                apiKey = "sonarr-api-key";
+                activeDirectory = "/media/tv";
+                activeAnimeDirectory = "/media/tv";
+              };
+            };
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+    in
+    assertTest "seerr-plex-generation" (
+      systemdUnits ? seerr
+      && systemdUnits ? seerr-setup
+      && systemdUnits ? seerr-user-settings
+      && systemdUnits ? seerr-discover
+      && systemdUnits ? seerr-radarr
+      && systemdUnits ? seerr-sonarr
+      && !(systemdUnits ? seerr-jellyfin)
+      && !(systemdUnits ? seerr-libraries)
+    );
+
+  bazarr-service-generation =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            sonarr = {
+              enable = true;
+              config.apiKey = "sonarr-api-key";
+            };
+            radarr = {
+              enable = true;
+              config.apiKey = "radarr-api-key";
+            };
+            bazarr = {
+              enable = true;
+              config = {
+                opensubtitlescom = {
+                  username = "opensubtitles-user";
+                  password = "opensubtitles-pass";
+                };
+              };
+            };
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+    in
+    assertTest "bazarr-service-generation" (
+      systemdUnits ? bazarr
+      && builtins.elem "sonarr.service" systemdUnits.bazarr.after
+      && !(builtins.elem "sonarr-config.service" systemdUnits.bazarr.after)
+      && builtins.elem "radarr.service" systemdUnits.bazarr.after
+      && !(builtins.elem "radarr-config.service" systemdUnits.bazarr.after)
+      && config.config.services.bazarr.dataDir == "/data/.state/bazarr"
+      && config.config.services.bazarr.listenPort == 6767
+      && config.config.nixflix.bazarr.group == "media"
+    );
+
+  bazarr-config-dependency-generation =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            sonarr = {
+              enable = true;
+              config = {
+                apiKey = "sonarr-api-key";
+                hostConfig.password = "sonarr-password";
+              };
+            };
+            radarr = {
+              enable = true;
+              config = {
+                apiKey = "radarr-api-key";
+                hostConfig.password = "radarr-password";
+              };
+            };
+            bazarr.enable = true;
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+    in
+    assertTest "bazarr-config-dependency-generation" (
+      builtins.elem "sonarr-config.service" systemdUnits.bazarr.after
+      && builtins.elem "radarr-config.service" systemdUnits.bazarr.after
+    );
+
+  bazarr-arr-hostconfig-generation =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            sonarr = {
+              enable = true;
+              config = {
+                apiKey = "sonarr-api-key";
+                hostConfig = {
+                  bindAddress = "0.0.0.0";
+                  urlBase = "";
+                };
+              };
+            };
+            radarr = {
+              enable = true;
+              config = {
+                apiKey = "radarr-api-key";
+                hostConfig = {
+                  port = 7879;
+                  urlBase = "/radarr-custom";
+                };
+              };
+            };
+            bazarr = {
+              enable = true;
+              config = {
+                opensubtitlescom = {
+                  username = "opensubtitles-user";
+                  password = "opensubtitles-pass";
+                };
+              };
+            };
+          };
+        }
+      ];
+      execStartPre = lib.removePrefix "+" config.config.systemd.services.bazarr.serviceConfig.ExecStartPre;
+    in
+    pkgs.runCommand "unit-test-bazarr-arr-hostconfig-generation" { } ''
+      template="$(${pkgs.gnugrep}/bin/grep -o '/nix/store/[^ ]*-bazarr-config-template.json' ${execStartPre})"
+      ${pkgs.gnugrep}/bin/grep -F '"sonarr":{"apikey":"","base_url":"","full_update":"Manually","ip":"127.0.0.1","only_monitored":true,"port":8989' "$template"
+      ${pkgs.gnugrep}/bin/grep -F '"radarr":{"apikey":"","base_url":"/radarr-custom","full_update":"Manually","ip":"127.0.0.1","movies_sync":10080,"movies_sync_on_live":false,"only_monitored":true,"port":7879' "$template"
+      echo 'PASS: bazarr-arr-hostconfig-generation' > $out
+    '';
+
+  service-dependency-mount-gating =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            serviceDependencies = [ "Volumes-Nixflix.mount" ];
+            torrentClients.qbittorrent = {
+              enable = true;
+              downloadsDir = "/Volumes/Nixflix/downloads/torrent";
+              serverConfig.BitTorrent.Session = {
+                TempPath = "/Volumes/Nixflix/downloads/torrent/incomplete";
+                TempPathEnabled = true;
+              };
+            };
+            sonarr = {
+              enable = true;
+              mediaDirs = [ "/Volumes/Nixflix/media/tv" ];
+              config.apiKey = "sonarr-api-key";
+            };
+          };
+        }
+      ];
+      systemdUnits = config.config.systemd.services;
+      tmpfiles = config.config.systemd.tmpfiles.settings;
+    in
+    assertTest "service-dependency-mount-gating" (
+      builtins.elem "Volumes-Nixflix.mount" systemdUnits.qbittorrent.after
+      && builtins.elem "Volumes-Nixflix.mount" systemdUnits.qbittorrent.requires
+      && builtins.elem "Volumes-Nixflix.mount" systemdUnits.nixflix-setup-dirs.after
+      && builtins.elem "Volumes-Nixflix.mount" systemdUnits.sonarr.after
+      && lib.hasInfix "mkdir -p" systemdUnits.nixflix-setup-dirs.script
+      && !(lib.hasInfix "install -d -m" systemdUnits.nixflix-setup-dirs.script)
+      && lib.hasInfix "mkdir -p" systemdUnits.qbittorrent.preStart
+      && lib.hasInfix "/Volumes/Nixflix/downloads/torrent/incomplete" systemdUnits.qbittorrent.preStart
+      && lib.hasPrefix "+" systemdUnits.sonarr.serviceConfig.ExecStartPre
+      && !(tmpfiles."10-nixflix" ? "/data/media")
+      && !(tmpfiles."10-qbittorrent" ? "/Volumes/Nixflix/downloads/torrent")
+      && !(tmpfiles."10-qbittorrent" ? "/Volumes/Nixflix/downloads/torrent/incomplete")
+      && !(tmpfiles."10-sonarr" ? "/Volumes/Nixflix/media/tv")
+    );
+
+  qbittorrent-preserves-restored-categories =
+    let
+      config = evalConfig [
+        {
+          nixflix = {
+            enable = true;
+            torrentClients.qbittorrent = {
+              enable = true;
+              categories.radarr = "/downloads/torrent/radarr";
+            };
+          };
+        }
+      ];
+      inherit (config.config.systemd.services.qbittorrent) preStart;
+    in
+    assertTest "qbittorrent-preserves-restored-categories" (
+      lib.hasInfix "if [ ! -e" preStart && !(lib.hasInfix "cp -f" preStart)
     );
 
   jellyfin-integration =

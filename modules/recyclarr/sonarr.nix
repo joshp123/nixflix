@@ -5,12 +5,13 @@ in
 {
   assertions = [
     {
-      assertion = config.nixflix.sonarr.enable -> config.nixflix.sonarr.config.apiKey != null;
+      assertion =
+        cfg.enable && config.nixflix.sonarr.enable -> config.nixflix.sonarr.config.apiKey != null;
       message = "Recyclarr Sonarr sync requires nixflix.sonarr.config.apiKey to be set";
     }
   ];
 
-  nixflix.recyclarr.config.sonarr.sonarr = lib.mkIf config.nixflix.sonarr.enable {
+  nixflix.recyclarr.config.sonarr.sonarr = lib.mkIf (cfg.enable && config.nixflix.sonarr.enable) {
     base_url = lib.mkDefault "http://127.0.0.1:${toString config.nixflix.sonarr.config.hostConfig.port}${toString config.nixflix.sonarr.config.hostConfig.urlBase}";
     api_key = lib.mkDefault config.nixflix.sonarr.config.apiKey;
     delete_old_custom_formats = lib.mkDefault true;
