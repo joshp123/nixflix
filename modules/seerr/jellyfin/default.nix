@@ -20,7 +20,7 @@ in
 {
   imports = [ ./options.nix ];
 
-  config = mkIf (nixflix.enable && cfg.enable) {
+  config = mkIf (nixflix.enable && cfg.enable && cfg.manage.enable) {
     systemd.services.seerr-jellyfin = {
       description = "Configure Jellyfin settings in Seerr";
       after = [ "seerr-user-settings.service" ];

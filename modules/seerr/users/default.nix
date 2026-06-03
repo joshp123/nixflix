@@ -21,7 +21,7 @@ in
 {
   imports = [ ./options.nix ];
 
-  config = mkIf (nixflix.enable && cfg.enable) {
+  config = mkIf (nixflix.enable && cfg.enable && cfg.manage.enable) {
     systemd.services.seerr-user-settings = {
       description = "Configure Seerr default user settings";
       after = [ "seerr-setup.service" ];

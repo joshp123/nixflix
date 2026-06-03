@@ -10,6 +10,8 @@ let
   cfg = config.nixflix.${serviceName};
   inherit (import ./utils.nix { inherit lib pkgs serviceName; }) usesMediaDirs;
   inherit (config.nixflix) globals;
+  mountGated = config.nixflix.serviceDependencies != [ ];
+  mkMediaDir = mediaDir: "${pkgs.coreutils}/bin/mkdir -p ${escapeShellArg (toString mediaDir)}";
 in
 {
   options.nixflix.${serviceName} = optionalAttrs usesMediaDirs {
@@ -22,18 +24,23 @@ in
   };
 
   config = mkIf (usesMediaDirs && config.nixflix.enable && cfg.enable) {
-    systemd.tmpfiles.settings."10-${serviceName}" = lib.mergeAttrsList (
-      map (mediaDir: {
-        "${mediaDir}".d = {
-          inherit (globals.libraryOwner) user group;
-          mode = "0775";
-        };
-      }) cfg.mediaDirs
+    systemd.tmpfiles.settings."10-${serviceName}" = mkIf (!mountGated) (
+      lib.mergeAttrsList (
+        map (mediaDir: {
+          "${mediaDir}".d = {
+            inherit (globals.libraryOwner) user group;
+            mode = "0775";
+          };
+        }) cfg.mediaDirs
+      )
     );
 
-    systemd.services.${serviceName}.serviceConfig = {
-      SupplementaryGroups = [ globals.libraryOwner.group ];
-      ReadWritePaths = cfg.mediaDirs ++ [ config.nixflix.downloadsDir ];
+    systemd.services.${serviceName} = {
+      preStart = mkIf mountGated (concatMapStringsSep "\n" mkMediaDir cfg.mediaDirs);
+      serviceConfig = {
+        SupplementaryGroups = [ globals.libraryOwner.group ];
+        ReadWritePaths = cfg.mediaDirs ++ [ config.nixflix.downloadsDir ];
+      };
     };
   };
 }

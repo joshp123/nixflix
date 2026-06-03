@@ -18,7 +18,7 @@ let
   baseUrl = "http://${cfg.connectionAddress}:${toString cfg.port}";
 in
 {
-  config = mkIf (nixflix.enable && cfg.enable) {
+  config = mkIf (nixflix.enable && cfg.enable && cfg.manage.enable) {
     systemd.services.seerr-libraries = {
       description = "Sync Seerr library selections";
       after = [

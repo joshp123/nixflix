@@ -49,7 +49,12 @@ in
         in
         [
           {
-            assertion = cfg.jellyfin.adminUsername != null && cfg.jellyfin.adminPassword != null;
+            assertion = !cfg.manage.enable || cfg.apiKey != null;
+            message = "Seerr management services require `nixflix.seerr.apiKey`. Set it, or set `nixflix.seerr.manage.enable = false` to preserve restored state without API-backed setup.";
+          }
+          {
+            assertion =
+              !cfg.manage.enable || (cfg.jellyfin.adminUsername != null && cfg.jellyfin.adminPassword != null);
             message = "Seerr requires Jellyfin admin credentials. Either enable `nixflix.jellyfin` with an admin user, or set `nixflix.seerr.jellyfin.adminUsername` and `nixflix.seerr.jellyfin.adminPassword`.";
           }
           {

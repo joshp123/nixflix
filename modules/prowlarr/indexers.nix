@@ -77,7 +77,8 @@ in
   };
 
   config.systemd.services."prowlarr-indexers" =
-    mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null)
+    mkIf
+      (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null && cfg.config.indexers != [ ])
       {
         description = "Configure Prowlarr indexers via API";
         after = [

@@ -12,9 +12,31 @@ in
   options.nixflix.seerr = {
     enable = mkEnableOption "Seerr media request manager";
 
-    package = mkPackageOption pkgs "seerr" { };
+    package = mkOption {
+      type = types.package;
+      default = pkgs.callPackage ../../pkgs/seerr { };
+      defaultText = literalExpression "pkgs.callPackage ../../pkgs/seerr { }";
+      description = "Seerr package to run.";
+    };
+
+    manage = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Whether Nixflix should manage Seerr setup and API-backed settings.
+
+          Disable this when adopting an existing Seerr data directory whose
+          media-server, library, user, and Arr settings are restored state. The
+          Seerr service still runs, but Nixflix will not run setup jobs that
+          mutate Seerr through its API.
+        '';
+      };
+    };
 
     apiKey = secrets.mkSecretOption {
+      nullable = true;
+      default = null;
       description = ''
         API key for Seerr. Can be created with:
 

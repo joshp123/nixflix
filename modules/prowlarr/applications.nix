@@ -52,7 +52,8 @@ in
   };
 
   config.systemd.services."prowlarr-applications" =
-    mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null)
+    mkIf
+      (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null && cfg.config.applications != [ ])
       {
         description = "Configure Prowlarr applications via API";
         after = [

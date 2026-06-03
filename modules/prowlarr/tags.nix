@@ -16,7 +16,7 @@ let
 in
 {
   config.systemd.services."prowlarr-tags" =
-    mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null)
+    mkIf (config.nixflix.enable && cfg.enable && cfg.config.apiKey != null && allTagNames != [ ])
       {
         description = "Ensure Prowlarr tags exist via API";
         after = [ "prowlarr-config.service" ];

@@ -176,7 +176,7 @@ in
 {
   imports = [ ./options.nix ];
 
-  config = mkIf (nixflix.enable && cfg.enable && cfg.radarr != { }) {
+  config = mkIf (nixflix.enable && cfg.enable && cfg.manage.enable && cfg.radarr != { }) {
     systemd.services.seerr-radarr = {
       description = "Configure Seerr Radarr integration";
       after = [ "seerr-libraries.service" ] ++ optional nixflix.radarr.enable "radarr-config.service";

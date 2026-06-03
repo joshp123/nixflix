@@ -207,7 +207,7 @@ in
 {
   imports = [ ./options.nix ];
 
-  config = mkIf (nixflix.enable && cfg.enable && cfg.sonarr != { }) {
+  config = mkIf (nixflix.enable && cfg.enable && cfg.manage.enable && cfg.sonarr != { }) {
     systemd.services.seerr-sonarr = {
       description = "Configure Seerr Sonarr integration";
       after = [

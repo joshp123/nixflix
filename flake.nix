@@ -65,6 +65,7 @@
         (import ./docs { inherit pkgs inputs; })
         // {
           default = self.packages.${system}.docs;
+          seerr = pkgs.callPackage ./pkgs/seerr { };
         }
       );
 

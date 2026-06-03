@@ -8,6 +8,20 @@ with lib;
 let
   inherit (config.nixflix) globals;
   cfg = config.nixflix;
+  mountGated = cfg.serviceDependencies != [ ];
+  managedDirs = [
+    {
+      path = cfg.mediaDir;
+      mode = "0775";
+      inherit (globals.libraryOwner) user group;
+    }
+    {
+      path = cfg.downloadsDir;
+      mode = "0775";
+      inherit (globals.libraryOwner) user group;
+    }
+  ];
+  createManagedDir = dir: "${pkgs.coreutils}/bin/mkdir -p ${escapeShellArg (toString dir.path)}";
 in
 {
   imports = [
@@ -306,22 +320,22 @@ in
         user = "root";
         group = "root";
       };
-      "${cfg.mediaDir}".d = {
-        mode = "0775";
-        inherit (globals.libraryOwner) user;
-        inherit (globals.libraryOwner) group;
-      };
-      "${cfg.downloadsDir}".d = {
-        mode = "0775";
-        inherit (globals.libraryOwner) user;
-        inherit (globals.libraryOwner) group;
-      };
-    };
+    }
+    // optionalAttrs (!mountGated) (
+      listToAttrs (
+        map (dir: {
+          name = toString dir.path;
+          value.d = {
+            inherit (dir) mode user group;
+          };
+        }) managedDirs
+      )
+    );
 
     systemd.services.nixflix-setup-dirs = {
       description = "Create tmp files";
-      after = [ "systemd-tmpfiles-setup.service" ];
-      requires = [ "systemd-tmpfiles-setup.service" ];
+      after = [ "systemd-tmpfiles-setup.service" ] ++ cfg.serviceDependencies;
+      requires = [ "systemd-tmpfiles-setup.service" ] ++ cfg.serviceDependencies;
 
       serviceConfig = {
         Type = "oneshot";
@@ -329,6 +343,7 @@ in
       };
 
       script = ''
+        ${optionalString mountGated (concatMapStringsSep "\n" createManagedDir managedDirs)}
         ${pkgs.systemd}/bin/systemd-tmpfiles --create
       '';
     };
