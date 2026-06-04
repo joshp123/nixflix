@@ -464,11 +464,13 @@ in
       ${check "policy script uses read-only Arr profile lookup" (
         lib.hasInfix "/api/v3/qualityprofile" script
       )}
-      ${check "policy script merges restored Seerr state instead of replacing whole settings" (
+      ${check "policy script merges restored Seerr settings without merging read-only Arr targets into PUT bodies" (
         lib.hasInfix "/api/v1/settings/main" script
         && lib.hasInfix "/api/v1/settings/plex" script
         && lib.hasInfix "$current + $policy" script
-        && lib.hasInfix "$existing + $desired" script
+        && lib.hasInfix "existing_arr_target_for_compare" script
+        && lib.hasInfix "del(.id)" script
+        && !lib.hasInfix "$existing + $desired" script
         && lib.hasInfix "Seerr admin Plex token was lost" script
       )}
       ${check "policy script fails closed on any selectable search-enabled Arr target" (

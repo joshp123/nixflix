@@ -105,6 +105,12 @@ write_json_if_changed() {
   fi
 }
 
+existing_arr_target_for_compare() {
+  local existing_payload="$1"
+
+  printf '%s' "$existing_payload" | jq 'del(.id)'
+}
+
 plex_current="$(seerr_get /api/v1/settings/plex)"
 plex_payload="$(
   printf '%s' "$plex_current" | jq \
@@ -302,8 +308,8 @@ configure_radarr_target() {
   local profile_id
   local existing_server
   local existing_id
+  local existing_payload
   local target_payload
-  local payload
 
   name="$(printf '%s' "$target" | jq -r '.name')"
   api_key_file="$(printf '%s' "$target" | jq -r '.apiKeyFile')"
@@ -322,11 +328,10 @@ configure_radarr_target() {
   )"
   if [ -n "$existing_server" ]; then
     existing_id="$(printf '%s' "$existing_server" | jq -r '.id')"
-    payload="$(jq -n --argjson existing "$existing_server" --argjson desired "$target_payload" '$existing + $desired')"
-    write_json_if_changed PUT "/api/v1/settings/radarr/$existing_id" "$existing_server" "$payload" "Seerr Radarr target policy: $name"
+    existing_payload="$(existing_arr_target_for_compare "$existing_server")"
+    write_json_if_changed PUT "/api/v1/settings/radarr/$existing_id" "$existing_payload" "$target_payload" "Seerr Radarr target policy: $name"
   else
-    payload="$target_payload"
-    seerr_write_json POST /api/v1/settings/radarr "$payload"
+    seerr_write_json POST /api/v1/settings/radarr "$target_payload"
     echo "Seerr Radarr target policy created: $name"
   fi
 }
@@ -341,8 +346,8 @@ configure_sonarr_target() {
   local anime_profile_id
   local existing_server
   local existing_id
+  local existing_payload
   local target_payload
-  local payload
 
   name="$(printf '%s' "$target" | jq -r '.name')"
   api_key_file="$(printf '%s' "$target" | jq -r '.apiKeyFile')"
@@ -364,11 +369,10 @@ configure_sonarr_target() {
   )"
   if [ -n "$existing_server" ]; then
     existing_id="$(printf '%s' "$existing_server" | jq -r '.id')"
-    payload="$(jq -n --argjson existing "$existing_server" --argjson desired "$target_payload" '$existing + $desired')"
-    write_json_if_changed PUT "/api/v1/settings/sonarr/$existing_id" "$existing_server" "$payload" "Seerr Sonarr target policy: $name"
+    existing_payload="$(existing_arr_target_for_compare "$existing_server")"
+    write_json_if_changed PUT "/api/v1/settings/sonarr/$existing_id" "$existing_payload" "$target_payload" "Seerr Sonarr target policy: $name"
   else
-    payload="$target_payload"
-    seerr_write_json POST /api/v1/settings/sonarr "$payload"
+    seerr_write_json POST /api/v1/settings/sonarr "$target_payload"
     echo "Seerr Sonarr target policy created: $name"
   fi
 }
