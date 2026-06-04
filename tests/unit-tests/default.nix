@@ -387,6 +387,11 @@ in
         && lib.hasInfix ".main.apiKey" script
         && !(builtins.hasAttr "API_KEY" env)
       )}
+      ${check "request-first policy allows empty Plex webAppUrl" (
+        env.SEERR_PLEX_WEB_APP_URL == ""
+        && lib.hasInfix "\${SEERR_PLEX_WEB_APP_URL:=}" script
+        && !lib.hasInfix "\${SEERR_PLEX_WEB_APP_URL:?}" script
+      )}
       ${check "request-first user and discover policy is generated" (
         userSettings.defaultPermissions == 8352
         && managedUsers.${"katrossen@gmail.com"}.email == "katrossen@gmail.com"

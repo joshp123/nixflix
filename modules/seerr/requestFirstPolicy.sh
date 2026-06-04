@@ -12,7 +12,7 @@ set -euo pipefail
 : "${SEERR_PLEX_HOSTNAME:?}"
 : "${SEERR_PLEX_PORT:?}"
 : "${SEERR_PLEX_USE_SSL:?}"
-: "${SEERR_PLEX_WEB_APP_URL:?}"
+: "${SEERR_PLEX_WEB_APP_URL:=}"
 
 fail() {
   printf 'seerr-request-first-policy: %s\n' "$*" >&2
