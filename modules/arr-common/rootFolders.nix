@@ -29,6 +29,17 @@ in
         For Lidarr, additional fields are required like defaultQualityProfileId, etc.
       '';
     };
+
+    deleteUnmanagedRootFolders = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Delete root folders that are not listed in `rootFolders`.
+
+        This defaults to false so restored-state adoption can create missing declared
+        folders without deleting existing app database entries.
+      '';
+    };
   };
 
   config =
@@ -70,22 +81,24 @@ in
             EOF
             )
 
-            echo "Removing root folders not in configuration..."
-            echo "$ROOT_FOLDERS" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r folder; do
-              FOLDER_PATH=$(echo "$folder" | ${pkgs.jq}/bin/jq -r '.path')
-              FOLDER_ID=$(echo "$folder" | ${pkgs.jq}/bin/jq -r '.id')
+            ${optionalString cfg.config.deleteUnmanagedRootFolders ''
+              echo "Removing root folders not in configuration..."
+              echo "$ROOT_FOLDERS" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r folder; do
+                FOLDER_PATH=$(echo "$folder" | ${pkgs.jq}/bin/jq -r '.path')
+                FOLDER_ID=$(echo "$folder" | ${pkgs.jq}/bin/jq -r '.id')
 
-              if ! echo "$CONFIGURED_PATHS" | ${pkgs.jq}/bin/jq -e --arg path "$FOLDER_PATH" 'index($path)' >/dev/null 2>&1; then
-                echo "Deleting root folder not in config: $FOLDER_PATH (ID: $FOLDER_ID)"
-                ${
-                  mkSecureCurl cfg.config.apiKey {
-                    url = "$BASE_URL/rootfolder/$FOLDER_ID";
-                    method = "DELETE";
-                    extraArgs = "-Sf";
-                  }
-                } >/dev/null 2>&1 || echo "Warning: Failed to delete root folder $FOLDER_PATH"
-              fi
-            done
+                if ! echo "$CONFIGURED_PATHS" | ${pkgs.jq}/bin/jq -e --arg path "$FOLDER_PATH" 'index($path)' >/dev/null 2>&1; then
+                  echo "Deleting root folder not in config: $FOLDER_PATH (ID: $FOLDER_ID)"
+                  ${
+                    mkSecureCurl cfg.config.apiKey {
+                      url = "$BASE_URL/rootfolder/$FOLDER_ID";
+                      method = "DELETE";
+                      extraArgs = "-Sf";
+                    }
+                  } >/dev/null 2>&1 || echo "Warning: Failed to delete root folder $FOLDER_PATH"
+                fi
+              done
+            ''}
 
             ${concatMapStringsSep "\n" (
               folderConfig:

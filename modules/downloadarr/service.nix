@@ -13,8 +13,10 @@ let
   allClients = filter (c: c.enable) (
     builtins.attrValues (
       builtins.removeAttrs cfg [
+        "deleteUnmanaged"
         "extraClients"
         "enable"
+        "services"
       ]
     )
     ++ cfg.extraClients
@@ -112,29 +114,31 @@ let
             }
           })
 
-          # Build list of configured download client names
-          CONFIGURED_NAMES=$(cat <<'EOF'
-          ${builtins.toJSON (map (d: d.name) clients)}
-          EOF
-          )
+          ${optionalString cfg.deleteUnmanaged ''
+            # Build list of configured download client names
+            CONFIGURED_NAMES=$(cat <<'EOF'
+            ${builtins.toJSON (map (d: d.name) clients)}
+            EOF
+            )
 
-          # Delete download clients that are not in the configuration
-          echo "Removing download clients not in configuration..."
-          echo "$DOWNLOAD_CLIENTS" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r downloadClient; do
-            CLIENT_NAME=$(echo "$downloadClient" | ${pkgs.jq}/bin/jq -r '.name')
-            CLIENT_ID=$(echo "$downloadClient" | ${pkgs.jq}/bin/jq -r '.id')
+            # Delete download clients that are not in the configuration
+            echo "Removing download clients not in configuration..."
+            echo "$DOWNLOAD_CLIENTS" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r downloadClient; do
+              CLIENT_NAME=$(echo "$downloadClient" | ${pkgs.jq}/bin/jq -r '.name')
+              CLIENT_ID=$(echo "$downloadClient" | ${pkgs.jq}/bin/jq -r '.id')
 
-            if ! echo "$CONFIGURED_NAMES" | ${pkgs.jq}/bin/jq -e --arg name "$CLIENT_NAME" 'index($name)' >/dev/null 2>&1; then
-              echo "Deleting download client not in config: $CLIENT_NAME (ID: $CLIENT_ID)"
-              ${
-                mkSecureCurl serviceConfig.apiKey {
-                  url = "$BASE_URL/downloadclient/$CLIENT_ID";
-                  method = "DELETE";
-                  extraArgs = "-Sf";
-                }
-              } >/dev/null || echo "Warning: Failed to delete download client $CLIENT_NAME"
-            fi
-          done
+              if ! echo "$CONFIGURED_NAMES" | ${pkgs.jq}/bin/jq -e --arg name "$CLIENT_NAME" 'index($name)' >/dev/null 2>&1; then
+                echo "Deleting download client not in config: $CLIENT_NAME (ID: $CLIENT_ID)"
+                ${
+                  mkSecureCurl serviceConfig.apiKey {
+                    url = "$BASE_URL/downloadclient/$CLIENT_ID";
+                    method = "DELETE";
+                    extraArgs = "-Sf";
+                  }
+                } >/dev/null || echo "Warning: Failed to delete download client $CLIENT_NAME"
+              fi
+            done
+          ''}
 
           ${concatMapStringsSep "\n" (
             clientConfig:
@@ -269,6 +273,7 @@ let
     serviceName:
     config.nixflix.enable
     && allClients != [ ]
+    && elem serviceName cfg.services
     && (config.nixflix.${serviceName}.enable or false)
     && (config.nixflix.${serviceName}.config.apiKey or null) != null
   ) arrServices;

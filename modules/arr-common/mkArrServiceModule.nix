@@ -47,9 +47,11 @@ in
   imports = [
     (import ./delayProfiles.nix { inherit serviceName; })
     (import ./hostConfig.nix { inherit serviceName; })
+    (import ./customFormats.nix { inherit serviceName; })
     (import ./mediaManagement.nix { inherit serviceName; })
     (import ./mediaDirs.nix { inherit serviceName; })
     (import ./postgres.nix { inherit serviceName; })
+    (import ./qualityProfiles.nix { inherit serviceName; })
     (import ./rootFolders.nix { inherit serviceName; })
   ];
 

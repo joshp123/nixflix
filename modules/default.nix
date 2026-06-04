@@ -25,12 +25,14 @@ let
 in
 {
   imports = [
+    ./bazarr
     ./downloadarr
     ./flaresolverr.nix
     ./globals.nix
     ./jellyfin
     ./seerr
     ./lidarr.nix
+    ./mediaPolicy/josh.nix
     ./postgres.nix
     ./prowlarr
     ./radarr.nix

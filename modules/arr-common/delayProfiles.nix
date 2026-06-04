@@ -119,6 +119,17 @@ in
         a default profile will be added automatically.
       '';
     };
+
+    deleteUnmanagedDelayProfiles = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Delete delay profiles that are not listed in `delayProfiles`.
+
+        This defaults to false for restored-state adoption. First convergence should
+        update/create declared delay profiles without pruning restored app state.
+      '';
+    };
   };
 
   config = mkIf (usesMediaDirs && config.nixflix.enable && cfg.enable && cfg.config.apiKey != null) {
@@ -162,21 +173,23 @@ in
           EOF
           )
 
-          echo "Removing delay profiles not in configuration..."
-          echo "$DELAY_PROFILES" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r profile; do
-            PROFILE_ID=$(echo "$profile" | ${pkgs.jq}/bin/jq -r '.id')
+          ${optionalString cfg.config.deleteUnmanagedDelayProfiles ''
+            echo "Removing delay profiles not in configuration..."
+            echo "$DELAY_PROFILES" | ${pkgs.jq}/bin/jq -r '.[] | @json' | while IFS= read -r profile; do
+              PROFILE_ID=$(echo "$profile" | ${pkgs.jq}/bin/jq -r '.id')
 
-            if ! echo "$CONFIGURED_IDS" | ${pkgs.jq}/bin/jq -e --argjson id "$PROFILE_ID" 'index($id)' >/dev/null 2>&1; then
-              echo "Deleting delay profile not in config (ID: $PROFILE_ID)"
-              ${
-                mkSecureCurl cfg.config.apiKey {
-                  url = "$BASE_URL/delayprofile/$PROFILE_ID";
-                  method = "DELETE";
-                  extraArgs = "-Sf";
-                }
-              } >/dev/null 2>&1 || echo "Warning: Failed to delete delay profile $PROFILE_ID (may be in use)"
-            fi
-          done
+              if ! echo "$CONFIGURED_IDS" | ${pkgs.jq}/bin/jq -e --argjson id "$PROFILE_ID" 'index($id)' >/dev/null 2>&1; then
+                echo "Deleting delay profile not in config (ID: $PROFILE_ID)"
+                ${
+                  mkSecureCurl cfg.config.apiKey {
+                    url = "$BASE_URL/delayprofile/$PROFILE_ID";
+                    method = "DELETE";
+                    extraArgs = "-Sf";
+                  }
+                } >/dev/null 2>&1 || echo "Warning: Failed to delete delay profile $PROFILE_ID (may be in use)"
+              fi
+            done
+          ''}
 
           ${concatMapStringsSep "\n" (
             profileConfig:

@@ -29,6 +29,8 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-rZ4o0ccfQjZBzWItEEFfxVi/cNO3HWnoDeNGpQ94H6E=";
   };
 
+  patches = [ ./nixflix-request-first.patch ];
+
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
     inherit pnpm;

@@ -17,6 +17,7 @@ in
     ./librarySyncService.nix
     ./options.nix
     ./radarr
+    ./requestFirst.nix
     ./setupService.nix
     ./sonarr
     ./users

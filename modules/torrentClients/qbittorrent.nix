@@ -12,8 +12,13 @@ let
   service = config.services.qbittorrent;
 
   hostname = "${cfg.subdomain}.${config.nixflix.reverseProxy.domain}";
-  categoriesJson = builtins.toJSON (lib.mapAttrs (_name: path: { save_path = path; }) cfg.categories);
+  categoriesJson = builtins.toJSON (
+    lib.mapAttrs (_name: path: { save_path = path; }) (
+      lib.filterAttrs (_name: path: path != "") cfg.categories
+    )
+  );
   categoriesFile = pkgs.writeText "categories.json" categoriesJson;
+  mergeCategories = ./qbittorrent-merge-categories.py;
   configPath = "${service.profileDir}/qBittorrent/config";
   mountGated = config.nixflix.serviceDependencies != [ ];
   sessionConfig = cfg.serverConfig.BitTorrent.Session;
@@ -260,9 +265,7 @@ in
         preStart = lib.mkIf (cfg.categories != { }) (
           lib.mkAfter ''
             ${optionalString mountGated (concatMapStringsSep "\n" mkDownloadDir downloadDirs)}
-            if [ ! -e '${configPath}/categories.json' ]; then
-              ${pkgs.coreutils}/bin/cp '${categoriesFile}' '${configPath}/categories.json'
-            fi
+            ${pkgs.python3}/bin/python ${mergeCategories} '${configPath}/categories.json' '${categoriesFile}'
             ${pkgs.coreutils}/bin/chmod 640 '${configPath}/categories.json'
             ${pkgs.coreutils}/bin/chown ${service.user}:${service.group} '${configPath}/categories.json'
           ''

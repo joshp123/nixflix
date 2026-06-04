@@ -46,6 +46,14 @@ let
     description = "Categories per Starr service instance";
   };
 
+  managedServiceType = types.enum [
+    "radarr"
+    "sonarr"
+    "sonarr-anime"
+    "lidarr"
+    "prowlarr"
+  ];
+
   mkDownloadClientType =
     {
       implementationName,
@@ -291,6 +299,35 @@ in
           description = "Whether to enable Downloadarr.";
 
         };
+
+        services = mkOption {
+          type = types.listOf managedServiceType;
+          default = [
+            "radarr"
+            "sonarr"
+            "sonarr-anime"
+            "lidarr"
+            "prowlarr"
+          ];
+          description = ''
+            Starr services whose download clients should be reconciled.
+
+            Restored-state media policies can narrow this to Sonarr/Radarr so Prowlarr
+            tracker-adjacent download-client wiring stays untouched.
+          '';
+        };
+
+        deleteUnmanaged = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            Delete download clients that are not declared in this module.
+
+            This defaults to false for restored-state adoption. First convergence should
+            create or update declared clients without pruning restored app state.
+          '';
+        };
+
         sabnzbd = mkOption {
           type = sabnzbdType;
           default = { };
