@@ -21,6 +21,12 @@ let
   apiKeyEnvVar = toUpper serviceBase + "__AUTH__APIKEY";
   apiKeyIsSecretRef = cfg.config.apiKey != null && secrets.isSecretRef cfg.config.apiKey;
   credentialPath = "/run/credentials/${serviceName}.service/apiKey";
+  toServarrEnum =
+    value:
+    if value == "disabledForLocalAddresses" then
+      "DisabledForLocalAddresses"
+    else
+      toUpper (substring 0 1 value) + substring 1 (-1) value;
   waitConfig =
     cfg.config
     // optionalAttrs apiKeyIsSecretRef {
@@ -172,8 +178,8 @@ in
       defaultText = literalExpression ''
         {
           auth = {
-            required = "Enabled";
-            method = "Forms";
+            required = toServarrEnum config.nixflix.${serviceName}.config.hostConfig.authenticationRequired;
+            method = toServarrEnum config.nixflix.${serviceName}.config.hostConfig.authenticationMethod;
           };
           server = {
             inherit (config.nixflix.${serviceName}.config.hostConfig) port urlBase;
@@ -268,8 +274,8 @@ in
       nixflix.${serviceName} = {
         settings = {
           auth = {
-            required = "Enabled";
-            method = "Forms";
+            required = toServarrEnum cfg.config.hostConfig.authenticationRequired;
+            method = toServarrEnum cfg.config.hostConfig.authenticationMethod;
           };
           server = { inherit (cfg.config.hostConfig) port urlBase; };
         };

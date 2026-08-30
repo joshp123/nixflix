@@ -80,7 +80,7 @@ let
     isDefault = true;
     externalUrl = "";
     syncEnabled = false;
-    preventSearch = true;
+    preventSearch = false;
     apiKeyFile = radarrCredential.apiKeyFile;
   });
 
@@ -103,7 +103,7 @@ let
     isDefault = true;
     externalUrl = "";
     syncEnabled = false;
-    preventSearch = true;
+    preventSearch = false;
     apiKeyFile = sonarrCredential.apiKeyFile;
   });
 in

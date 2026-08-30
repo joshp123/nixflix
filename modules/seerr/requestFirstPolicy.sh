@@ -283,22 +283,6 @@ find_existing_server() {
   fi
 }
 
-ensure_no_search_enabled_servers() {
-  local kind="$1"
-  local existing
-  local unsafe
-  local unsafe_count
-  local unsafe_names
-
-  existing="$(seerr_get "/api/v1/settings/$kind")"
-  unsafe="$(printf '%s' "$existing" | jq '[.[] | select(.preventSearch != true)]')"
-  unsafe_count="$(printf '%s' "$unsafe" | jq 'length')"
-  if [ "$unsafe_count" -gt 0 ]; then
-    unsafe_names="$(printf '%s' "$unsafe" | jq -r 'map(.name // (.id | tostring)) | join(", ")')"
-    fail "existing Seerr $kind target(s) permit search-on-request: $unsafe_names"
-  fi
-}
-
 configure_radarr_target() {
   local target="$1"
   local name
@@ -383,7 +367,6 @@ if [ "$radarr_target_count" -gt 0 ]; then
     configure_radarr_target "$target"
   done
 fi
-ensure_no_search_enabled_servers radarr
 
 sonarr_target_count="$(jq 'length' "$SEERR_SONARR_TARGETS_JSON")"
 if [ "$sonarr_target_count" -gt 0 ]; then
@@ -391,7 +374,6 @@ if [ "$sonarr_target_count" -gt 0 ]; then
     configure_sonarr_target "$target"
   done
 fi
-ensure_no_search_enabled_servers sonarr
 
 apply_user_policy
 

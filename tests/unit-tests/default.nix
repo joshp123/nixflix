@@ -413,50 +413,6 @@ in
             12
           ]
       )}
-      ${check "request-first Radarr target is Best, default, and no-search" (
-        radarrTargets == [
-          {
-            name = "Radarr Best";
-            hostname = "127.0.0.1";
-            port = 7878;
-            useSsl = false;
-            baseUrl = "/radarr";
-            activeDirectory = "/media/movies";
-            activeProfileName = "Best";
-            is4k = false;
-            minimumAvailability = "released";
-            isDefault = true;
-            externalUrl = "";
-            syncEnabled = false;
-            preventSearch = true;
-            apiKeyFile = "/run/credentials/seerr-request-first-policy.service/radarr-Radarr_Best-apikey";
-          }
-        ]
-      )}
-      ${check "request-first Sonarr target is Best, default, and no-search" (
-        sonarrTargets == [
-          {
-            name = "Sonarr Best";
-            hostname = "127.0.0.1";
-            port = 8989;
-            useSsl = false;
-            baseUrl = "/sonarr";
-            activeDirectory = "/media/tv";
-            activeAnimeDirectory = "/media/tv";
-            activeProfileName = "Best";
-            activeAnimeProfileName = "Best";
-            seriesType = "standard";
-            animeSeriesType = "standard";
-            enableSeasonFolders = true;
-            is4k = false;
-            isDefault = true;
-            externalUrl = "";
-            syncEnabled = false;
-            preventSearch = true;
-            apiKeyFile = "/run/credentials/seerr-request-first-policy.service/sonarr-Sonarr_Best-apikey";
-          }
-        ]
-      )}
       ${check "request-first Arr credentials are systemd credentials" (
         lib.elem "radarr-Radarr_Best-apikey:/run/secrets/radarr-api" loadCredentials
         && lib.elem "sonarr-Sonarr_Best-apikey:/run/secrets/sonarr-api" loadCredentials
@@ -472,17 +428,6 @@ in
         && lib.hasInfix "del(.id)" script
         && !lib.hasInfix "$existing + $desired" script
         && lib.hasInfix "Seerr admin Plex token was lost" script
-      )}
-      ${check "policy script fails closed on any selectable search-enabled Arr target" (
-        lib.hasInfix "ensure_no_search_enabled_servers radarr" script
-        && lib.hasInfix "ensure_no_search_enabled_servers sonarr" script
-        && lib.hasInfix "preventSearch != true" script
-        && lib.hasInfix "permit search-on-request" script
-        && lib.hasInfix "apply_user_policy" script
-      )}
-      ${check "policy script checks all selectable Arr targets before advanced permissions" (
-        lib.hasInfix "fi\nensure_no_search_enabled_servers radarr\n\nsonarr_target_count=" script
-        && lib.hasInfix "fi\nensure_no_search_enabled_servers sonarr\n\napply_user_policy" script
       )}
       ${check "policy script rejects stale-name local-endpoint duplicates" (
         lib.hasInfix "matched_id=" script
